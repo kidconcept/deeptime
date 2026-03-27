@@ -1,0 +1,73 @@
+#!/bin/bash
+# COG Management CLI - Dispatcher script for managing COG files in GCS
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+MANAGE_DIR="${SCRIPT_DIR}/manage"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+
+# Change to project root so scripts can find .env
+cd "$PROJECT_ROOT" || {
+  echo "Error: Cannot find project root directory"
+  exit 1
+}
+
+# Show usage if no command provided
+if [ $# -eq 0 ]; then
+  cat << EOF
+========================================
+COG Management CLI
+========================================
+
+Usage: cog <command> [arguments]
+
+Commands:
+  create [OPTIONS] <input>  Create a COG from source file(s)
+  list                      List all COG files in the GCS bucket
+  inspect <file.tif>        Show detailed information about a COG file
+  upload <file> [name]      Upload a local COG file to GCS
+  remove <file.tif>         Delete a COG file from GCS
+
+Examples:
+  cog create /path/to/scan.tif
+  cog create --arbitrary --site-name "18 Palms" /path/to/GIS/
+  cog list
+  cog inspect 18palms.tif
+  cog upload /path/to/coral.tif
+  cog upload /path/to/coral.tif site1-2024.tif
+  cog remove old-file.tif
+
+Environment:
+  Bucket: \$BUCKET_NAME (from .env)
+  TiTiler: \$TITILER_URL (from .env)
+
+EOF
+  exit 0
+fi
+
+COMMAND=$1
+shift
+
+# Route to the appropriate script
+case "$COMMAND" in
+  create)
+    bash "${MANAGE_DIR}/create.sh" "$@"
+    ;;
+  list)
+    bash "${MANAGE_DIR}/list.sh" "$@"
+    ;;
+  inspect)
+    bash "${MANAGE_DIR}/inspect.sh" "$@"
+    ;;
+  upload)
+    bash "${MANAGE_DIR}/upload.sh" "$@"
+    ;;
+  remove)
+    bash "${MANAGE_DIR}/remove.sh" "$@"
+    ;;
+  *)
+    echo "Error: Unknown command '$COMMAND'"
+    echo ""
+    echo "Run 'cog' with no arguments to see usage."
+    exit 1
+    ;;
+esac
