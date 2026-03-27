@@ -3,6 +3,8 @@
 # Supports two modes:
 #   1. Preserve existing georeferencing (default)
 #   2. Add arbitrary georeferencing at (0,0) with --arbitrary flag
+#
+# Version: 1.0.0
 
 set -e
 
@@ -19,6 +21,7 @@ ARBITRARY_MODE=false
 INPUT_PATH=""
 OUTPUT_PATH=""
 SITE_NAME=""
+METADATA_SUCCESS=false  # Track if metadata was added successfully
 
 # =============================================================================
 # Helper Functions
@@ -44,12 +47,15 @@ get_compression_label() {
   fi
 }
 
-# Add metadata to a GeoTIFF using gdal_edit.py
-add_metadata() {
+# Add metadata to a VRT file using gdal_edit.py
+add_metadata_to_vrt() {
   local file=$1
   
-  if ! command -v gdal_edit.py &> /dev/null; then
-    echo "   ⚠️  gdal_edit.py not available - skipping metadata"
+  # Use Homebrew's gdal_edit.py (pyenv version has broken GDAL bindings)
+  local GDAL_EDIT="/opt/homebrew/bin/gdal_edit.py"
+  
+  if ! command -v "$GDAL_EDIT" &> /dev/null; then
+    echo "   ⚠️  $GDAL_EDIT not available - skipping metadata"
     return 1
   fi
   
@@ -78,11 +84,11 @@ add_metadata() {
     )
   fi
   
-  if gdal_edit.py "${meta_args[@]}" "$file" 2>/dev/null; then
-    echo "   ✅ Metadata added"
+  if "$GDAL_EDIT" "${meta_args[@]}" "$file"; then
+    echo "   Metadata added"
     return 0
   else
-    echo "   ⚠️  Metadata update failed but COG is still valid"
+    echo "   ⚠️  Metadata update failed (see error above)"
     return 1
   fi
 }
@@ -175,7 +181,7 @@ if [ -z "$OUTPUT_PATH" ]; then
     OUTPUT_DIR="$(dirname "$INPUT_PATH")/COG"
     mkdir -p "$OUTPUT_DIR"
     if [ "$ARBITRARY_MODE" = true ]; then
-      OUTPUT_PATH="$OUTPUT_DIR/${PARENT_NAME}-georef.tif"
+      OUTPUT_PATH="$OUTPUT_DIR/${PARENT_NAME}-arbitrary-cog.tif"
     else
       OUTPUT_PATH="$OUTPUT_DIR/${PARENT_NAME}-cog.tif"
     fi
@@ -183,7 +189,7 @@ if [ -z "$OUTPUT_PATH" ]; then
     BASE_NAME=$(basename "$INPUT_PATH" .tif)
     OUTPUT_DIR=$(dirname "$INPUT_PATH")
     if [ "$ARBITRARY_MODE" = true ]; then
-      OUTPUT_PATH="${OUTPUT_DIR}/${BASE_NAME}-georef.tif"
+      OUTPUT_PATH="${OUTPUT_DIR}/${BASE_NAME}-arbitrary-cog.tif"
     else
       OUTPUT_PATH="${OUTPUT_DIR}/${BASE_NAME}-cog.tif"
     fi
@@ -196,14 +202,13 @@ if [ -z "$SITE_NAME" ]; then
 fi
 
 echo "======================================================================="
-echo "  COG Creation Tool (Optimized)"
+echo "  COG Creation Tool v1.0.0"
 echo "======================================================================="
 echo ""
-echo "Mode:              $([ "$ARBITRARY_MODE" = true ] && echo "Arbitrary georeferencing (0,0)" || echo "Preserve existing georeferencing")"
-echo "Input ($INPUT_TYPE):    $INPUT_PATH"
-echo "Output COG:        $OUTPUT_PATH"
-echo "Site name:         $SITE_NAME"
-echo "Performance:       Only 1 pixel copy (optimized)"
+echo "Mode:        $([ "$ARBITRARY_MODE" = true ] && echo "Arbitrary georeferencing (0,0)" || echo "Preserve existing georeferencing")"
+echo "Input:       $INPUT_PATH"
+echo "Output:      $OUTPUT_PATH"
+echo "Site name:   $SITE_NAME"
 echo ""
 
 # =============================================================================
@@ -219,6 +224,7 @@ cd "$TEMP_DIR"
 
 echo "📥 Step 1: Preparing source..."
 
+# Always create VRT to allow metadata addition
 if [ "$IS_DIRECTORY" = true ]; then
   # Build VRT from directory
   SOURCE_COUNT=$(find "$INPUT_PATH" -name "*.tif" -o -name "*.tiff" | wc -l | xargs)
@@ -231,14 +237,16 @@ if [ "$IS_DIRECTORY" = true ]; then
   fi
   
   gdalbuildvrt -overwrite source.vrt "$INPUT_PATH"/*.tif
-  SOURCE_FILE="source.vrt"
-  echo "   ✅ VRT created from $SOURCE_COUNT files"
+  echo "   VRT created from $SOURCE_COUNT files"
 else
-  # Single file - use directly
-  SOURCE_FILE="$INPUT_PATH"
+  # Single file - create VRT wrapper to allow metadata addition
   SOURCE_COUNT=1
-  echo "   Using single file: $(basename "$INPUT_PATH")"
+  echo "   Creating VRT wrapper for: $(basename "$INPUT_PATH")"
+  gdalbuildvrt -overwrite source.vrt "$INPUT_PATH"
+  echo "   VRT wrapper created"
 fi
+
+SOURCE_FILE="source.vrt"
 
 # =============================================================================
 # STEP 2: Analyze source
@@ -256,25 +264,24 @@ BAND_COUNT=$(echo "$GDALINFO_OUTPUT" | grep -c "^Band [0-9]")
 echo "   Image size: ${WIDTH} x ${HEIGHT} pixels"
 echo "   Band count: ${BAND_COUNT}"
 
-# Detect pixel scale
-PIXEL_SIZE_LINE=$(echo "$GDALINFO_OUTPUT" | grep "Pixel Size =" || echo "")
-
-if [ -n "$PIXEL_SIZE_LINE" ]; then
-  PIXEL_SIZE_DEG=$(echo "$PIXEL_SIZE_LINE" | sed -E 's/.*\(([0-9.e+-]+).*/\1/' | sed 's/^-//')
-  IS_REASONABLE=$(echo "$PIXEL_SIZE_DEG > 0.000001 && $PIXEL_SIZE_DEG < 0.1" | bc -l)
-  
-  if [ "$IS_REASONABLE" -eq 1 ]; then
-    SCALE_M=$(echo "scale=15; $PIXEL_SIZE_DEG * $METERS_PER_DEGREE" | bc)
-    SCALE_SOURCE="geotransform"
-  else
-    PIXEL_SIZE_DEG=""
-  fi
-fi
-
-if [ -z "$PIXEL_SIZE_DEG" ]; then
+# Detect pixel scale based on mode
+if [ "$ARBITRARY_MODE" = true ]; then
+  # Arbitrary mode: source isn't georeferenced, always use default
   SCALE_M=$DEFAULT_SCALE_M_PER_PX
   PIXEL_SIZE_DEG=$(echo "scale=15; $SCALE_M / $METERS_PER_DEGREE" | bc)
   SCALE_SOURCE="default"
+else
+  # Default mode: trust the existing geotransform
+  PIXEL_SIZE_LINE=$(echo "$GDALINFO_OUTPUT" | grep "Pixel Size =" || echo "")
+  if [ -n "$PIXEL_SIZE_LINE" ]; then
+    PIXEL_SIZE_DEG=$(echo "$PIXEL_SIZE_LINE" | sed -E 's/.*\(([0-9.e+-]+).*/\1/' | sed 's/^-//')
+    SCALE_M=$(echo "scale=15; $PIXEL_SIZE_DEG * $METERS_PER_DEGREE" | bc)
+    SCALE_SOURCE="geotransform"
+  else
+    SCALE_M=$DEFAULT_SCALE_M_PER_PX
+    PIXEL_SIZE_DEG=$(echo "scale=15; $SCALE_M / $METERS_PER_DEGREE" | bc)
+    SCALE_SOURCE="default"
+  fi
 fi
 
 echo "   Pixel scale: ${SCALE_M} m/pixel (${SCALE_SOURCE})"
@@ -305,13 +312,12 @@ echo "   Zoom range: $MIN_ZOOM to $MAX_ZOOM"
 echo "   Overview levels: $OVERVIEW_LEVELS"
 
 # =============================================================================
-# STEP 4: Apply georeferencing (arbitrary mode only, NO pixel copy)
+# STEP 4: Apply georeferencing and metadata to VRT (NO pixel copy)
 # =============================================================================
 
+echo ""
+echo "🏷️  Step 4: Applying georeferencing and metadata..."
 if [ "$ARBITRARY_MODE" = true ]; then
-  echo ""
-  echo "🗺️  Step 4: Applying arbitrary EPSG:4326 georeferencing..."
-  
   # Calculate extent
   WIDTH_DEG=$(echo "scale=15; $WIDTH * $PIXEL_SIZE_DEG" | bc)
   HEIGHT_DEG=$(echo "scale=15; $HEIGHT * $PIXEL_SIZE_DEG" | bc)
@@ -325,34 +331,43 @@ if [ "$ARBITRARY_MODE" = true ]; then
   echo "   Anchor: ($ANCHOR_LON, $ANCHOR_LAT)"
   
   # Check if gdal_edit.py is available
-  if ! command -v gdal_edit.py &> /dev/null; then
-    echo "   ❌ Error: gdal_edit.py not available (required for arbitrary mode)"
+  if ! command -v /opt/homebrew/bin/gdal_edit.py &> /dev/null; then
+    echo "   ❌ Error: /opt/homebrew/bin/gdal_edit.py not available (required for arbitrary mode)"
     rm -rf "$TEMP_DIR"
     exit 1
   fi
   
-  # Update VRT/source georeferencing (instant, no pixel copy!)
-  gdal_edit.py \
+  # Update VRT georeferencing
+  /opt/homebrew/bin/gdal_edit.py \
     -a_srs EPSG:4326 \
     -a_ullr $MIN_X $MAX_Y $MAX_X $MIN_Y \
     "$SOURCE_FILE"
   
-  echo "   ✅ Georeferencing applied to source (no pixel copy)"
-  PROCESSING_INPUT="$SOURCE_FILE"
+  echo "   Arbitrary EPSG:4326 georeferencing applied"
 else
-  echo ""
-  echo "🗺️  Step 4: Preserving existing georeferencing..."
-  echo "   ✅ Using source directly (no copy needed)"
-  
-  PROCESSING_INPUT="$SOURCE_FILE"
+  echo "   Using existing georeferencing from source"
 fi
 
+# Add metadata to VRT (will be preserved during COG creation)
+if add_metadata_to_vrt "$SOURCE_FILE"; then
+  METADATA_SUCCESS=true
+else
+  echo ""
+  echo "   ⚠️  CRITICAL WARNING: Metadata not added!"
+  echo "   Without RECOMMENDED_MIN_ZOOM/MAX_ZOOM metadata, the viewer may not"
+  echo "   be able to locate this 100m scan in the global view."
+  echo "   You may need to manually zoom to find it."
+  echo ""
+fi
+
+PROCESSING_INPUT="$SOURCE_FILE"
+
 # =============================================================================
-# STEP 5: Convert to COG with overviews (ONLY pixel copy in entire process)
+# STEP 5: Convert to COG with overviews (metadata from VRT is preserved)
 # =============================================================================
 
 echo ""
-echo "🔄 Step 5: Converting to Cloud-Optimized GeoTIFF..."
+echo "⚙️  Step 5: Converting to Cloud-Optimized GeoTIFF..."
 
 # Get compression settings
 COG_COMPRESSION=$(get_cog_compression $BAND_COUNT)
@@ -368,28 +383,15 @@ rio cogeo create \
   --overview-level $OVERVIEW_LEVELS \
   "$PROCESSING_INPUT" output.tif
 
-echo "   ✅ COG conversion complete"
+echo "   Conversion complete"
 
 # =============================================================================
-# STEP 6: Add metadata (instant, no copy)
-# =============================================================================
-
-echo ""
-echo "🏷️  Step 6: Adding metadata..."
-
-add_metadata output.tif
-
-# =============================================================================
-# STEP 7: Validate and copy to output
+# STEP 6: Validate and copy to output
 # =============================================================================
 
 echo ""
-echo "✅ Step 7: Validating COG..."
+echo "📋 Step 6: Validating and finalizing..."
 rio cogeo validate output.tif
-
-echo ""
-echo "📋 COG Information:"
-gdalinfo output.tif | grep -E "Size is|Origin|Pixel Size|Coordinate System|Upper Left|Lower Right|SCALE_M_PER_PX|NATIVE_ZOOM|MIN_ZOOM|MAX_ZOOM|SITE_NAME"
 
 # Copy to final destination
 echo ""
@@ -406,26 +408,44 @@ cd - > /dev/null
 rm -rf "$TEMP_DIR"
 
 echo ""
-echo "======================================================================="
 echo "✨ SUCCESS! COG created"
-echo "======================================================================="
+echo ""
+echo "======================================================================"
+echo "📋 COG Information"
+echo "======================================================================"
 echo ""
 echo "Output file:  $OUTPUT_PATH"
 echo "File size:    $OUTPUT_SIZE"
 echo ""
-echo "Display Parameters:"
-echo "  - Scale: ${SCALE_M} m/pixel (${SCALE_SOURCE})"
-echo "  - Native zoom: ${NATIVE_ZOOM}"
-echo "  - Zoom range: ${MIN_ZOOM} to ${MAX_ZOOM}"
-echo "  - Overview levels: ${OVERVIEW_LEVELS}"
+echo "Site Name: ${SITE_NAME}"
+echo "Scale: ${SCALE_M} m/pixel (${SCALE_SOURCE})"
+echo "Native zoom: ${NATIVE_ZOOM}"
+echo "Zoom range: ${MIN_ZOOM} to ${MAX_ZOOM}"
+echo "Overview levels: ${OVERVIEW_LEVELS}"
+echo "Size: ${WIDTH} x ${HEIGHT} pixels"
+
+# Extract corner coordinates from the final COG
+GDALINFO_FINAL=$(gdalinfo "$OUTPUT_PATH")
+UPPER_LEFT=$(echo "$GDALINFO_FINAL" | grep "Upper Left" | sed 's/Upper Left  //')
+LOWER_RIGHT=$(echo "$GDALINFO_FINAL" | grep "Lower Right" | sed 's/Lower Right //')
+
+if [ -n "$UPPER_LEFT" ]; then
+  echo "North West Corner $UPPER_LEFT"
+fi
+if [ -n "$LOWER_RIGHT" ]; then
+  echo "South East Corner $LOWER_RIGHT"
+fi
+
 echo ""
 if [ "$ARBITRARY_MODE" = true ]; then
   echo "Mode: Arbitrary georeferencing at (0,0)"
-  echo "Metadata: COORDINATE_SYSTEM=unreferenced"
 else
   echo "Mode: Preserved existing georeferencing"
 fi
 echo ""
-echo "Performance: Only 1 pixel copy (50% faster than before)"
-echo "This COG is ready for TiTiler display!"
+if [ "$METADATA_SUCCESS" = true ]; then
+  echo "This COG is ready for TiTiler display!"
+else
+  echo "⚠️  WARNING: COG created but may be difficult to locate in viewer without metadata."
+fi
 echo ""

@@ -1,7 +1,11 @@
 #!/bin/bash
 # Show detailed information about a COG file in GCS
 
-source .env
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+
+source "$PROJECT_ROOT/.env"
 
 BUCKET_NAME=${BUCKET_NAME:-}
 FILE_NAME=${1:-}
@@ -20,11 +24,17 @@ if [ -z "$FILE_NAME" ]; then
 fi
 
 FILE_PATH="gs://${BUCKET_NAME}/${FILE_NAME}"
+VSIGS_PATH="/vsigs/${BUCKET_NAME}/${FILE_NAME}"
 
 # Check if file exists
 if ! gcloud storage ls "$FILE_PATH" &>/dev/null; then
   echo "Error: File not found: $FILE_PATH"
   exit 1
+fi
+
+# Set up GCS credentials for GDAL
+if [ -f "$PROJECT_ROOT/keys/titiler-sa-key.json" ]; then
+  export GOOGLE_APPLICATION_CREDENTIALS="$PROJECT_ROOT/keys/titiler-sa-key.json"
 fi
 
 echo "========================================="
@@ -34,48 +44,56 @@ echo "File: $FILE_PATH"
 echo ""
 
 # GCS file info
-echo "--- GCS Metadata ---"
-gcloud storage ls -L "$FILE_PATH" | grep -E 'Creation time|Update time|Size|Content-Type|CRC32C'
+echo "--- GCS Storage Info ---"
+gcloud storage ls -L "$FILE_PATH" | grep -E 'Content-Type|Hash \(CRC32C\)|Storage class|Size:' | sed 's/^[[:space:]]*/ /'
 echo ""
 
-# GDAL info (if available)
-if command -v gdalinfo &>/dev/null; then
-  echo "--- Raster Metadata ---"
-  gdalinfo "$FILE_PATH" | grep -A 3 "Size is"
-  echo ""
-  gdalinfo "$FILE_PATH" | grep -A 5 "Corner Coordinates"
-  echo ""
-  gdalinfo "$FILE_PATH" | grep "Pixel Size"
-  echo ""
-  
-  # Check if it's a valid COG
-  if command -v rio &>/dev/null; then
-    echo "--- COG Validation ---"
-    if rio cogeo validate "$FILE_PATH" 2>&1 | grep -q "is a valid"; then
-      echo "✅ Valid COG format"
-    else
-      echo "❌ Not a valid COG"
-      rio cogeo validate "$FILE_PATH" 2>&1 | tail -5
-    fi
-    echo ""
-  fi
+# GDAL info using /vsigs/ virtual filesystem
+echo "--- Raster Metadata ---"
+if ! command -v gdalinfo &>/dev/null; then
+  echo "❌ gdalinfo not available"
+  exit 1
 fi
 
-# TiTiler info
-echo "--- TiTiler Info ---"
-echo "Testing TiTiler endpoints..."
-ENCODED_URL=$(python3 -c "import urllib.parse; print(urllib.parse.quote('${FILE_PATH}', safe=''))")
+GDALINFO_OUTPUT=$(gdalinfo "$VSIGS_PATH" 2>&1)
+if [ $? -ne 0 ]; then
+  echo "❌ Cannot read file with GDAL"
+  echo "$GDALINFO_OUTPUT" | grep -i error
+  exit 1
+fi
 
-# Info endpoint
-INFO_RESPONSE=$(curl -sf "${TITILER_URL}/cog/info?url=${ENCODED_URL}" 2>/dev/null)
-if [ $? -eq 0 ]; then
-  echo "✅ TiTiler can read this file"
-  echo "   Bounds: $(echo $INFO_RESPONSE | grep -o '"bounds":\[[^]]*\]')"
-  echo "   Dimensions: $(echo $INFO_RESPONSE | grep -o '"width":[0-9]*' | cut -d: -f2) x $(echo $INFO_RESPONSE | grep -o '"height":[0-9]*' | cut -d: -f2)"
-  echo "   Zoom levels: $(echo $INFO_RESPONSE | grep -o '"minzoom":[0-9]*' | cut -d: -f2) - $(echo $INFO_RESPONSE | grep -o '"maxzoom":[0-9]*' | cut -d: -f2)"
+# Extract key information
+echo "$GDALINFO_OUTPUT" | grep "Size is"
+echo "$GDALINFO_OUTPUT" | grep "Coordinate System" | head -1
+echo "$GDALINFO_OUTPUT" | grep "Origin ="
+echo "$GDALINFO_OUTPUT" | grep "Pixel Size ="
+echo ""
+
+# Corner coordinates
+echo "--- Geographic Bounds ---"
+echo "$GDALINFO_OUTPUT" | grep -A 5 "Corner Coordinates"
+echo ""
+
+# Custom metadata
+echo "--- Custom Metadata ---"
+METADATA=$(echo "$GDALINFO_OUTPUT" | sed -n '/^Metadata:$/,/^[A-Z]/p' | grep -E "^  [A-Z]" | grep -E "SITE_NAME|SCALE_|ZOOM|GEOREF|PROCESSING_DATE|SOURCE_FILE_COUNT|COMMENT")
+
+if [ -n "$METADATA" ]; then
+  echo "$METADATA"
 else
-  echo "❌ TiTiler cannot read this file"
-  echo "   Check service account permissions and file format"
+  echo "  No custom metadata found"
+fi
+echo ""
+
+# COG validation
+if command -v rio &>/dev/null; then
+  echo "--- COG Validation ---"
+  if rio cogeo validate "$VSIGS_PATH" 2>&1 | grep -q "is a valid"; then
+    echo "✅ Valid Cloud-Optimized GeoTIFF"
+  else
+    echo "❌ Not a valid COG format"
+    rio cogeo validate "$VSIGS_PATH" 2>&1 | tail -3
+  fi
 fi
 
 echo ""
@@ -88,5 +106,3 @@ echo ""
 echo "Download locally:"
 echo "  gcloud storage cp ${FILE_PATH} ."
 echo ""
-echo "View in browser (preview):"
-echo "  open \"${TITILER_URL}/cog/preview.png?url=${ENCODED_URL}&max_size=1024\""
