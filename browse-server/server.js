@@ -1,0 +1,88 @@
+const express = require('express');
+const path = require('path');
+
+const app = express();
+const PORT = 8081;
+const DEV_MODE = process.env.NODE_ENV !== 'production';
+
+// Disable all caching mechanisms in dev mode
+if (DEV_MODE) {
+  app.set('etag', false);
+  app.set('x-powered-by', false);
+}
+
+// TiTiler configuration
+const TITILER_URL = 'https://titiler-1038056933229.us-central1.run.app';
+
+// Dev mode: aggressively disable ALL caching
+if (DEV_MODE) {
+  app.use((req, res, next) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('Surrogate-Control', 'no-store');
+    res.removeHeader('ETag');
+    res.removeHeader('Last-Modified');
+    next();
+  });
+}
+
+// Serve static files from the public directory
+app.use(express.static(path.join(__dirname, 'public'), {
+  etag: false,
+  lastModified: false,
+  maxAge: 0,
+  immutable: false,
+  cacheControl: false
+}));
+
+// Proxy endpoint for TiTiler to avoid CORS issues
+app.get('/api/titiler/*', async (req, res) => {
+  try {
+    const titilerPath = req.params[0];
+    const queryString = Object.keys(req.query).length > 0 
+      ? '?' + new URLSearchParams(req.query).toString()
+      : '';
+    const url = `${TITILER_URL}/${titilerPath}${queryString}`;
+    
+    console.log(`Proxying TiTiler request: ${url}`);
+    
+    const fetch = (await import('node-fetch')).default;
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      throw new Error(`TiTiler returned ${response.status}: ${response.statusText}`);
+    }
+    
+    const contentType = response.headers.get('content-type');
+    res.setHeader('Content-Type', contentType);
+    
+    if (contentType && contentType.includes('application/json')) {
+      const data = await response.json();
+      res.json(data);
+    } else {
+      const buffer = await response.buffer();
+      res.send(buffer);
+    }
+  } catch (error) {
+    console.error('TiTiler proxy error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', service: 'leaflet-viewer' });
+});
+
+// Start server
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🗺️  Leaflet viewer running at http://0.0.0.0:${PORT}`);
+  console.log(`📁 Serving files from: ${path.join(__dirname, 'public')}`);
+  console.log(`🔄 TiTiler proxy: ${TITILER_URL}`);
+  if (DEV_MODE) {
+    console.log('🔧 DEV MODE: All caching disabled - hard refresh (Cmd+Shift+R) to see changes');
+  } else {
+    console.log('🚀 PRODUCTION MODE: Caching enabled');
+  }
+});
