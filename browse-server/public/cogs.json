@@ -1,0 +1,38 @@
+[
+  {
+    "url": "gs://deeptime-cogs-deeptime-491316/18-Palms-Georeferenced-cog.tif",
+    "name": "18-Palms-Georeferenced-cog.tif",
+    "bounds": [
+      -68.27796749615499,
+      12.136807059464273,
+      -68.27716024693353,
+      12.137886336199431
+    ],
+    "minzoom": 19,
+    "maxzoom": 24
+  },
+  {
+    "url": "gs://deeptime-cogs-deeptime-491316/18palms-arbitrary-cog.tif",
+    "name": "18palms-arbitrary-cog.tif",
+    "bounds": [
+      0,
+      0,
+      0.0009734300725578569,
+      0.00030199105080790215
+    ],
+    "minzoom": 20,
+    "maxzoom": 24
+  },
+  {
+    "url": "gs://deeptime-cogs-deeptime-491316/18palms.tif",
+    "name": "18palms.tif",
+    "bounds": [
+      -180,
+      90,
+      180,
+      90
+    ],
+    "minzoom": 9,
+    "maxzoom": 9
+  }
+]

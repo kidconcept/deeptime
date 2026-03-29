@@ -10,20 +10,19 @@ export function initializeMap() {
   return map;
 }
 
-export function updateTileLayer(mapInstance, url, cogInfo) {
+export function updateTileLayer(mapInstance, cogData) {
   // Remove previous tile layers
   mapInstance.eachLayer(layer => {
-    if (layer instanceof L.TileLayer && !(layer instanceof L.GridLayer)) {
+    if (layer instanceof L.TileLayer && layer.options.id !== 'basemap') {
       mapInstance.removeLayer(layer);
     }
   });
 
-const tileUrl = `/api/titiler/cog/tiles/WebMercatorQuad/{z}/{x}/{y}?url=${encodeURIComponent(url)}`;
+  const tileUrl = `http://localhost:8081/api/titiler/cog/tiles/{z}/{x}/{y}?url=${encodeURIComponent(cogData.url)}`;
   
-  // Use more reasonable zoom levels (TiTiler's auto-calculated values can be too restrictive)
   L.tileLayer(tileUrl, {
-    minZoom: 0,
-    maxZoom: 28,
+    minZoom: cogData.minzoom,
+    maxZoom: cogData.maxzoom,
   }).addTo(mapInstance);
 }
 

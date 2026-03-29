@@ -1,35 +1,34 @@
 import { initializeMap, updateTileLayer, fitBounds } from './map-controller.js';
-import { fetchAllCogMetadata, getCogInfo } from './cog-data-manager.js';
+import { fetchCogConfig } from './cog-data-manager.js';
 import { populateCogSelector } from './ui/cog-selector.js';
 import { displayMetadata } from './ui/metadata-panel.js';
 import { showMessage, checkDevMode } from './ui/message-bus.js';
 
 const state = {
-  cogData: [],
+  cogConfig: [],
   currentCogUrl: null,
   map: null,
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
-  // Initialize metadata panel first so messages have a container
-  displayMetadata(null);
-  
-  showMessage('info', 'Initializing viewer...');
+  showMessage('info', 'Initializing viewer...', { timeout: 2000 });
   
   state.map = initializeMap();
   
   await checkDevMode();
 
-  state.cogData = await fetchAllCogMetadata();
+  state.cogConfig = await fetchCogConfig();
   
-  populateCogSelector(state.cogData);
-
-  // Set default COG
-  const defaultCog = state.cogData.find(c => c.url.includes('arbitrary')) || state.cogData[0];
-  if (defaultCog) {
-    state.currentCogUrl = defaultCog.url;
-    loadCog(state.currentCogUrl);
+  if (state.cogConfig.length === 0) {
+    showMessage('error', 'COG configuration is empty. Please run "npm run refresh-cogs".', { persistent: true });
+    return;
   }
+
+  populateCogSelector(state.cogConfig);
+
+  // Set default COG to the first one in the list
+  state.currentCogUrl = state.cogConfig[0].url;
+  loadCog(state.currentCogUrl);
 
   document.addEventListener('cogChanged', (e) => {
     state.currentCogUrl = e.detail.url;
@@ -37,20 +36,21 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 });
 
-async function loadCog(url) {
-  showMessage('info', `Loading COG: ${url.split('/').pop()}`);
-  try {
-    const cogInfo = await getCogInfo(url);
-    
-    if (!cogInfo || !cogInfo.bounds) {
-      throw new Error('Failed to get valid COG info.');
-    }
+function loadCog(url) {
+  const cogData = state.cogConfig.find(c => c.url === url);
+  
+  if (!cogData) {
+    showMessage('error', `Could not find configuration for ${url}`);
+    return;
+  }
 
-    updateTileLayer(state.map, url, cogInfo);
-    fitBounds(state.map, cogInfo.bounds);
-    displayMetadata(cogInfo);
+  showMessage('info', `Loading COG: ${cogData.name}`);
+  try {
+    updateTileLayer(state.map, cogData);
+    fitBounds(state.map, cogData.bounds);
+    displayMetadata(cogData);
     
-    showMessage('info', 'COG loaded successfully.');
+    showMessage('info', 'COG loaded successfully.', { timeout: 3000 });
   } catch (error) {
     console.error('Error loading COG:', error);
     showMessage('error', `Error loading COG: ${error.message}`);
