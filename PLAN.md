@@ -94,28 +94,28 @@ Set up the Google Cloud Platform project with required APIs, service accounts, a
 
 #### Tasks
 
-- [ ] **#3** - Enable required GCP APIs
+- [X] **#3** - Enable required GCP APIs
   - Enable Compute Engine, Cloud Run, Cloud Storage APIs
   - Verify with `gcloud services list --enabled`
   
-- [ ] **#4** - Set up billing alerts
+- [X] **#4** - Set up billing alerts
   - Create alerts at $100, $200, $400 thresholds
   - Configure email notifications
   
-- [ ] **#5** - Create service accounts and IAM roles
+- [X] **#5** - Create service accounts and IAM roles
   - Create `titiler-sa` service account
   - Grant Storage Object Viewer role
   
-- [ ] **#6** - Configure VPC firewall rules
+- [X] **#6** - Configure VPC firewall rules
   - Allow port 8080 for CVAT access
   - Create rules for browse and annotate servers
 
 #### Acceptance Criteria
 
-- [ ] `gcloud services list --enabled` shows required APIs
-- [ ] Service account exists with correct permissions
-- [ ] Firewall rules allow access to port 8080
-- [ ] Billing alerts configured and verified
+- [X] `gcloud services list --enabled` shows required APIs
+- [X] Service account exists with correct permissions
+- [X] Firewall rules allow access to port 8080
+- [X] Billing alerts configured and verified
 
 ---
 
@@ -129,20 +129,20 @@ Set up Google Cloud Storage bucket, prepare and upload COG file, and deploy TiTi
 
 #### Tasks
 
-- [ ] **#8** - Create GCS bucket
+- [X] **#8** - Create GCS bucket
   - Bucket in `us-central1` region
   - Grant TiTiler service account access
   
-- [ ] **#9** - Select and convert image to COG format
+- [X] **#9** - Select and convert image to COG format
   - Install GDAL: `brew install gdal`
   - Convert using: `gdal_translate -of COG -co COMPRESS=JPEG -co QUALITY=85 ...`
   - Validate: `rio cogeo validate file.tif`
   
-- [ ] **#10** - Upload COG to GCS bucket
+- [X] **#10** - Upload COG to GCS bucket
   - Upload: `gcloud storage cp file.tif gs://bucket/`
   - Document GCS URI
   
-- [ ] **#11** - Deploy TiTiler to Cloud Run
+- [X] **#11** - Deploy TiTiler to Cloud Run
   - Deploy: `gcloud run deploy titiler --image=ghcr.io/developmentseed/titiler:latest`
   - Configure service account and memory limits
   
@@ -153,9 +153,9 @@ Set up Google Cloud Storage bucket, prepare and upload COG file, and deploy TiTi
 
 #### Acceptance Criteria
 
-- [ ] GCS bucket exists and is accessible
-- [ ] COG file passes validation: `rio cogeo validate file.tif`
-- [ ] TiTiler service running on Cloud Run
+- [X] GCS bucket exists and is accessible
+- [X] COG file passes validation: `rio cogeo validate file.tif`
+- [X] TiTiler service running on Cloud Run
 - [ ] Tile endpoint returns valid PNG images
 
 ---
@@ -170,37 +170,18 @@ Deploy always-on CVAT server for browsing coral imagery, without GPU acceleratio
 
 #### Tasks
 
-- [ ] **#14** - Create Browse VM
+- [X] **#14** - Create Browse VM
   - Machine type: e2-medium (2 vCPU, 4 GB RAM, shared-core)
   - Reserve static IP address
   - Create VM with Ubuntu 22.04 LTS
   
-- [ ] **#15** - Install Docker and Docker Compose on Browse VM
-  - Install Docker: `curl -fsSL https://get.docker.com | sh`
-  - Install Docker Compose plugin
-  - Verify: `docker run hello-world`
-  
-- [ ] **#16** - Configure CVAT docker-compose for browse-only
-  - Create docker-compose.yml with core CVAT components
-  - Exclude GPU/serverless components
-  - Configure postgres, redis, server, workers, UI
-  
-- [ ] **#17** - Deploy CVAT stack on Browse VM
-  - Start containers: `docker compose up -d`
-  - Create superuser account
-  - Verify all containers running
-  
-- [ ] **#18** - Import COG via TiTiler into CVAT
-  - Create project for coral annotation
-  - Add labels: healthy_coral, diseased_coral, sctld_lesion, etc.
-  - Import imagery and verify browsability
 
 #### Acceptance Criteria
 
 - [ ] CVAT accessible at `http://[browse-ip]:8080`
 - [ ] Can pan/zoom through coral imagery smoothly
-- [ ] Multiple users can log in simultaneously
-- [ ] Manual annotations work (polygons, labels)
+- [ ] Protect server from too much traffic?
+- [ ] Manual annotations display
 - [ ] VM set to always-on (no auto-shutdown)
 
 ---

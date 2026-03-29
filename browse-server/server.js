@@ -40,18 +40,24 @@ app.use(express.static(path.join(__dirname, 'public'), {
 app.get('/api/titiler/*', async (req, res) => {
   try {
     const titilerPath = req.params[0];
-    const queryString = Object.keys(req.query).length > 0 
-      ? '?' + new URLSearchParams(req.query).toString()
-      : '';
-    const url = `${TITILER_URL}/${titilerPath}${queryString}`;
+    // Use express's parsed query object which handles decoding
+    const params = new URLSearchParams(req.query);
+    const queryString = params.toString();
+    const url = `${TITILER_URL}/${titilerPath}?${queryString}`;
     
     console.log(`Proxying TiTiler request: ${url}`);
     
     const fetch = (await import('node-fetch')).default;
-    const response = await fetch(url);
+    const response = await fetch(url, {
+      headers: {
+        'Cache-Control': 'no-cache'
+      }
+    });
     
     if (!response.ok) {
-      throw new Error(`TiTiler returned ${response.status}: ${response.statusText}`);
+      const errorBody = await response.text();
+      console.error(`TiTiler returned ${response.status}: ${errorBody}`);
+      throw new Error(`TiTiler returned ${response.status}`);
     }
     
     const contentType = response.headers.get('content-type');
@@ -61,13 +67,18 @@ app.get('/api/titiler/*', async (req, res) => {
       const data = await response.json();
       res.json(data);
     } else {
-      const buffer = await response.buffer();
-      res.send(buffer);
+      const buffer = await response.arrayBuffer();
+      res.send(Buffer.from(buffer));
     }
   } catch (error) {
     console.error('TiTiler proxy error:', error);
     res.status(500).json({ error: error.message });
   }
+});
+
+// Endpoint to expose the current mode to the frontend
+app.get('/api/dev-mode', (req, res) => {
+  res.json({ isDevMode: DEV_MODE });
 });
 
 // Health check endpoint

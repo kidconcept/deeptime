@@ -5,11 +5,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MANAGE_DIR="${SCRIPT_DIR}/manage"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
-# Change to project root so scripts can find .env
-cd "$PROJECT_ROOT" || {
-  echo "Error: Cannot find project root directory"
-  exit 1
-}
+# Save current directory for resolving relative paths
+USER_PWD="$PWD"
 
 # Show usage if no command provided
 if [ $# -eq 0 ]; then
@@ -46,6 +43,45 @@ fi
 
 COMMAND=$1
 shift
+
+# Function to resolve relative paths to absolute paths
+resolve_path() {
+  local path="$1"
+  if [[ "$path" = /* ]]; then
+    # Already absolute
+    echo "$path"
+  else
+    # Make relative path absolute from user's original directory
+    echo "${USER_PWD}/${path}"
+  fi
+}
+
+# Resolve file paths for commands that need them (before changing directory)
+case "$COMMAND" in
+  create)
+    # Last argument is the input path
+    ARGS=("$@")
+    if [ ${#ARGS[@]} -gt 0 ]; then
+      LAST_IDX=$((${#ARGS[@]} - 1))
+      ARGS[$LAST_IDX]=$(resolve_path "${ARGS[$LAST_IDX]}")
+    fi
+    set -- "${ARGS[@]}"
+    ;;
+  upload)
+    # First argument is the local file
+    if [ $# -gt 0 ]; then
+      ARG1=$(resolve_path "$1")
+      shift
+      set -- "$ARG1" "$@"
+    fi
+    ;;
+esac
+
+# Change to project root so scripts can find .env
+cd "$PROJECT_ROOT" || {
+  echo "Error: Cannot find project root directory"
+  exit 1
+}
 
 # Route to the appropriate script
 case "$COMMAND" in
