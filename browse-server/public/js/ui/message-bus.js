@@ -1,20 +1,23 @@
-const messageContainer = document.getElementById('message-container');
+const messages = [];
 
-export function showMessage(type, text, options = {}) {
-  const { timeout = 5000, persistent = false } = options;
-
-  const messageEl = document.createElement('div');
-  messageEl.className = `message ${type}`;
-  messageEl.textContent = text;
+export function showMessage(type, text) {
+  const message = {
+    type,
+    text,
+    timestamp: new Date().toLocaleTimeString()
+  };
   
-  messageContainer.appendChild(messageEl);
+  messages.push(message);
+  updateMessagesDisplay();
+}
 
-  if (!persistent) {
-    setTimeout(() => {
-      messageEl.style.opacity = '0';
-      setTimeout(() => messageEl.remove(), 500);
-    }, timeout);
-  }
+export function updateMessagesDisplay() {
+  const messageContainer = document.getElementById('message-list');
+  if (!messageContainer) return;
+  
+  messageContainer.innerHTML = messages.map(msg => 
+    `<div>${msg.timestamp} - ${msg.text}</div>`
+  ).join('');
 }
 
 export async function checkDevMode() {
@@ -22,7 +25,7 @@ export async function checkDevMode() {
     const response = await fetch('/api/dev-mode');
     const data = await response.json();
     if (data.isDevMode) {
-      showMessage('info', '🔧 Dev Mode', { persistent: true });
+      showMessage('info', '🔧 Dev Mode');
     }
   } catch (error) {
     console.error('Failed to check dev mode status:', error);

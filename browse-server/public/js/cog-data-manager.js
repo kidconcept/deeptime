@@ -1,9 +1,8 @@
 const TITILER_URL = '/api/titiler';
 
 const COG_FILES = [
-  { url: 'gs://deeptime-cogs-deeptime-491316/18palms_georef_qgis-cog.tif', name: 'Georeferenced' },
-  { url: 'gs://deeptime-cogs-deeptime-491316/18palms-ungeoref.tif', name: 'Unreferenced' },
-  { url: 'gs://deeptime-cogs-deeptime-491316/18palms.tif', name: 'Original (Invalid Georef)' },
+  { url: 'gs://deeptime-cogs-deeptime-491316/18palms-arbitrary-cog.tif', name: '18 Palms Unreferenced' },
+  { url: 'gs://deeptime-cogs-deeptime-491316/18palms.tif', name: '18 Palms Original' },
 ];
 
 export async function fetchAllCogMetadata() {

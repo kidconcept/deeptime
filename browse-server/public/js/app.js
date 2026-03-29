@@ -11,7 +11,10 @@ const state = {
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
-  showMessage('info', 'Initializing viewer...', { timeout: 2000 });
+  // Initialize metadata panel first so messages have a container
+  displayMetadata(null);
+  
+  showMessage('info', 'Initializing viewer...');
   
   state.map = initializeMap();
   
@@ -22,7 +25,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   populateCogSelector(state.cogData);
 
   // Set default COG
-  const defaultCog = state.cogData.find(c => c.url.includes('georef'));
+  const defaultCog = state.cogData.find(c => c.url.includes('arbitrary')) || state.cogData[0];
   if (defaultCog) {
     state.currentCogUrl = defaultCog.url;
     loadCog(state.currentCogUrl);
@@ -47,7 +50,7 @@ async function loadCog(url) {
     fitBounds(state.map, cogInfo.bounds);
     displayMetadata(cogInfo);
     
-    showMessage('info', 'COG loaded successfully.', { timeout: 3000 });
+    showMessage('info', 'COG loaded successfully.');
   } catch (error) {
     console.error('Error loading COG:', error);
     showMessage('error', `Error loading COG: ${error.message}`);

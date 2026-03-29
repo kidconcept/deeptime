@@ -20,9 +20,10 @@ export function updateTileLayer(mapInstance, url, cogInfo) {
 
 const tileUrl = `/api/titiler/cog/tiles/WebMercatorQuad/{z}/{x}/{y}?url=${encodeURIComponent(url)}`;
   
+  // Use more reasonable zoom levels (TiTiler's auto-calculated values can be too restrictive)
   L.tileLayer(tileUrl, {
-    minZoom: cogInfo.minzoom,
-    maxZoom: cogInfo.maxzoom,
+    minZoom: 0,
+    maxZoom: 28,
   }).addTo(mapInstance);
 }
 
