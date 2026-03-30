@@ -49,7 +49,6 @@ Deployment scripts are located in `scripts/tile-server/deploy/`:
 - **`test.sh`**: Validates TiTiler endpoints and GCS access
 - **`setup-sa.sh`**: Creates and configures the service account
 - **`info.sh`**: Shows service configuration and status
-- **`redeploy.sh`**: Quick redeployment script for new projects
 
 ### COG Management Utility
 
@@ -116,7 +115,7 @@ Management scripts are in `scripts/tile-server/manage/`:
 **Region**: us-central1  
 **Container Image**: `ghcr.io/developmentseed/titiler:latest`  
 **Service Account**: `titiler-sa@deeptime-491316.iam.gserviceaccount.com`  
-**URL**: https://titiler-1038056933229.us-central1.run.app
+**URL**: See `.env` file for current URL (set by `deploy.sh`)
 
 ### Resource Configuration
 
@@ -149,54 +148,68 @@ GDAL_HTTP_VERSION=2
 ## Access
 
 **Service URL**:
-```
-https://titiler-1038056933229.us-central1.run.app
+```bash
+# Set from your .env file
+TITILER_URL=<value from .env>
+
+# Or source the .env file
+source .env
+echo $TITILER_URL
 ```
 
-**API Documentation** (if available):
-```
-https://titiler-1038056933229.us-central1.run.app/docs
+**API Documentation**:
+```bash
+# Load environment first
+source .env
+
+# View TiTiler API docs
+open "${TITILER_URL}/docs"
 ```
 
 ---
 
 ## API Endpoints
 
+**Note**: All examples below use `$TITILER_URL` and `$COG_GCS_URI` variables. Set these first:
+```bash
+source .env  # Load environment variables from repo root
+```
+
 ### Information Endpoints
 
 **COG Info** - Returns metadata about a COG file:
 ```bash
-curl "https://titiler-1038056933229.us-central1.run.app/cog/info?url=gs://deeptime-cogs-deeptime-491316/18palms.tif"
+curl "${TITILER_URL}/cog/info?url=${COG_GCS_URI}"
 ```
 
 **COG Statistics** - Returns band statistics:
 ```bash
-curl "https://titiler-1038056933229.us-central1.run.app/cog/statistics?url=gs://deeptime-cogs-deeptime-491316/18palms.tif"
+curl "${TITILER_URL}/cog/statistics?url=${COG_GCS_URI}"
 ```
 
 ### Image Endpoints
 
 **Preview** - Full image at reduced resolution:
 ```bash
-curl "https://titiler-1038056933229.us-central1.run.app/cog/preview.png?url=gs://deeptime-cogs-deeptime-491316/18palms.tif&max_size=1024" \
+curl "${TITILER_URL}/cog/preview.png?url=${COG_GCS_URI}&max_size=1024" \
   --output preview.png
 ```
 
 **Tiles** - Web Mercator tiles (requires georeferenced COG):
 ```bash
-curl "https://titiler-1038056933229.us-central1.run.app/cog/tiles/WebMercatorQuad/{z}/{x}/{y}.png?url=gs://deeptime-cogs-deeptime-491316/18palms.tif"
+curl "${TITILER_URL}/cog/tiles/WebMercatorQuad/{z}/{x}/{y}.png?url=${COG_GCS_URI}"
 ```
 
 **Part** - Specific pixel region (works without georeferencing):
 ```bash
-curl "https://titiler-1038056933229.us-central1.run.app/cog/part.png?url=gs://deeptime-cogs-deeptime-491316/18palms.tif&bbox=0,0,5000,5000" \
+curl "${TITILER_URL}/cog/part.png?url=${COG_GCS_URI}&bbox=0,0,5000,5000" \
   --output part.png
 ```
 
 ### Available TileMatrixSets
 
 ```bash
-curl "https://titiler-1038056933229.us-central1.run.app/tileMatrixSets"
+curl "${TITILER_URL}/tileMatrixSets"
 ```
 
 ---
@@ -344,16 +357,17 @@ gcloud run services update titiler \
 ## Service Status
 
 **Service is LIVE**: ✅ Running on Cloud Run  
-**URL**: https://titiler-1038056933229.us-central1.run.app  
+**URL**: Check `.env` file or run `bash scripts/tile-server/deploy/info.sh`  
 **Container**: ghcr.io/developmentseed/titiler:latest  
 **Auto-scaling**: 0-10 instances
 
 **Health Checks**:
 ```bash
-# Quick test
+# Quick test (requires .env configured)
 bash scripts/tile-server/deploy/test.sh
 
 # Manual tests
+source .env
 curl -s "${TITILER_URL}/cog/info?url=${COG_GCS_URI}" | head -5
 curl -s "${TITILER_URL}/cog/preview.png?url=${COG_GCS_URI}&max_size=512" -o test.png
 ```
@@ -365,12 +379,6 @@ curl -s "${TITILER_URL}/cog/preview.png?url=${COG_GCS_URI}&max_size=512" -o test
 When you receive Google Cloud credits and need to redeploy in a new project:
 
 ### Quick Redeployment
-
-```bash
-bash scripts/tile-server/deploy/redeploy.sh NEW-PROJECT-ID NEW-BUCKET-NAME
-```
-
-### Manual Redeployment
 
 **1. Prepare New Project**
 
@@ -406,12 +414,12 @@ done
 **4. Update Configuration**
 
 ```bash
-# Update .env with new values
+# Update .env with new values (in repo root)
 cat > .env << EOF
 PROJECT_ID=NEW-PROJECT-ID
-BUCKET_NAME=NEW-BUCKET-NAME
-COG_GCS_URI=gs://NEW-BUCKET-NAME/18palms.tif
 REGION=us-central1
+BUCKET_NAME=NEW-BUCKET-NAME
+COG_GCS_URI=gs://NEW-BUCKET-NAME/your-test-file.tif
 TITILER_SA_EMAIL=titiler-sa@NEW-PROJECT-ID.iam.gserviceaccount.com
 EOF
 ```

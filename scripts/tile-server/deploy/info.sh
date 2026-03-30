@@ -1,7 +1,12 @@
 #!/bin/bash
 # Show TiTiler service information
 
-source .env 2>/dev/null || true
+# Get script directory and repo root
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+
+# Load environment variables from repo root
+source "$REPO_ROOT/.env" 2>/dev/null || true
 
 PROJECT_ID=${PROJECT_ID:-$(gcloud config get-value project)}
 SERVICE_NAME="titiler"

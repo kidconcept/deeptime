@@ -16,10 +16,17 @@ echo "=================================="
 # Get the absolute path to the browse-server directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOCAL_APP_PATH="$SCRIPT_DIR/../../../browse-server"
+REPO_ROOT="$SCRIPT_DIR/../../.."
 
 if [ ! -d "$LOCAL_APP_PATH" ]; then
   echo "❌ Error: browse-server directory not found at $LOCAL_APP_PATH"
   exit 1
+fi
+
+# Check if .env exists in repo root
+if [ ! -f "$REPO_ROOT/.env" ]; then
+  echo "⚠️  Warning: .env file not found at $REPO_ROOT/.env"
+  echo "   The application will use fallback URLs from code"
 fi
 
 echo "📦 Source: $LOCAL_APP_PATH"
@@ -29,6 +36,13 @@ echo ""
 # Copy files to temporary location on VM
 echo "📤 Copying application files to VM..."
 gcloud compute scp --recurse "$LOCAL_APP_PATH/" "$VM_NAME:/tmp/leaflet-viewer-new" --zone="$ZONE"
+
+# Copy .env file if it exists
+if [ -f "$REPO_ROOT/.env" ]; then
+  echo "📤 Copying .env file to VM..."
+  gcloud compute scp "$REPO_ROOT/.env" "$VM_NAME:/tmp/leaflet-viewer-new/.env" --zone="$ZONE"
+fi
+
 echo "✅ Files copied to VM"
 
 # Deploy on the VM

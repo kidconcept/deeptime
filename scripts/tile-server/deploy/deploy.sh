@@ -3,8 +3,12 @@
 
 set -e
 
-# Load environment variables
-source .env 2>/dev/null || true
+# Get script directory and repo root
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+
+# Load environment variables from repo root
+source "$REPO_ROOT/.env" 2>/dev/null || true
 
 PROJECT_ID=${PROJECT_ID:-$(gcloud config get-value project)}
 SERVICE_NAME="titiler"
@@ -41,12 +45,14 @@ echo "========================================="
 TITILER_URL=$(gcloud run services describe $SERVICE_NAME --region=$REGION --format="value(status.url)")
 echo "TiTiler URL: $TITILER_URL"
 
-# Update .env
-if grep -q "^TITILER_URL=" .env 2>/dev/null; then
-  sed -i.bak "s|^TITILER_URL=.*|TITILER_URL=${TITILER_URL}|" .env && rm -f .env.bak
+# Update root .env
+ENV_FILE="$REPO_ROOT/.env"
+if grep -q "^TITILER_URL=" "$ENV_FILE" 2>/dev/null; then
+  sed -i.bak "s|^TITILER_URL=.*|TITILER_URL=${TITILER_URL}|" "$ENV_FILE" && rm -f "${ENV_FILE}.bak"
 else
-  echo "TITILER_URL=${TITILER_URL}" >> .env
+  echo "TITILER_URL=${TITILER_URL}" >> "$ENV_FILE"
 fi
+echo "Updated $ENV_FILE"
 
 echo ""
 echo "Testing deployment..."

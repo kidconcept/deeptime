@@ -1,7 +1,12 @@
 #!/bin/bash
 # Upload a COG file to the GCS bucket
 
-source .env
+# Get script directory and repo root
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+
+# Load environment variables from repo root
+source "$REPO_ROOT/.env"
 
 BUCKET_NAME=${BUCKET_NAME:-}
 LOCAL_FILE=${1:-}

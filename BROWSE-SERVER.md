@@ -71,6 +71,22 @@ APP_DIR="/var/www/leaflet-viewer"    # Application directory on VM
 
 **Note**: `.deploy-config` is gitignored. Never commit credentials or environment-specific values.
 
+### Environment Variables
+
+The browse server reads configuration from a `.env` file in the repository root. This file is automatically copied to the VM during deployment.
+
+**Required variables**:
+```bash
+TITILER_URL=https://titiler-xxxxx-uc.a.run.app  # TiTiler service URL (set by deploy.sh)
+```
+
+**Setup**:
+1. Copy the example file: `cp .env.example .env`
+2. Deploy TiTiler first: `bash scripts/tile-server/deploy/deploy.sh` (auto-updates `.env`)
+3. Deploy browse server: `cd scripts/browse-server && ./deploy.sh` (copies `.env` to VM)
+
+The server will use fallback URLs if `.env` is missing, but for production use, always configure `.env` properly.
+
 ### Multiple Environments
 
 For staging/production environments:

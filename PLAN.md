@@ -146,7 +146,7 @@ Set up Google Cloud Storage bucket, prepare and upload COG file, and deploy TiTi
   - Deploy: `gcloud run deploy titiler --image=ghcr.io/developmentseed/titiler:latest`
   - Configure service account and memory limits
   
-- [ ] **#12** - Test TiTiler tile serving
+- [X] **#12** - Test TiTiler tile serving
   - Test info endpoint: `/cog/info?url=gs://...`
   - Test tile endpoint: `/cog/tiles/{z}/{x}/{y}.png?url=gs://...`
   - Verify tiles load in <1 second
@@ -156,7 +156,7 @@ Set up Google Cloud Storage bucket, prepare and upload COG file, and deploy TiTi
 - [X] GCS bucket exists and is accessible
 - [X] COG file passes validation: `rio cogeo validate file.tif`
 - [X] TiTiler service running on Cloud Run
-- [ ] Tile endpoint returns valid PNG images
+- [X] Tile endpoint returns valid PNG images
 
 ---
 
@@ -174,12 +174,19 @@ Deploy always-on CVAT server for browsing coral imagery, without GPU acceleratio
   - Machine type: e2-medium (2 vCPU, 4 GB RAM, shared-core)
   - Reserve static IP address
   - Create VM with Ubuntu 22.04 LTS
+
+- [ ] **#20** - Set up HTTPS with SSL certificate
+  - Register domain or use subdomain (e.g., coral.yourdomain.com)
+  - Point DNS A record to static IP (34.61.65.156)
+  - Install nginx as reverse proxy
+  - Use Let's Encrypt/certbot for free SSL certificate (or Cloudflare)
+  - Configure auto-renewal
+  - Required for future user authentication
   
 
 #### Acceptance Criteria
 
-- [ ] CVAT accessible at `http://[browse-ip]:8080`
-- [ ] Can pan/zoom through coral imagery smoothly
+- [X] Can pan/zoom through coral imagery smoothly
 - [ ] Protect server from too much traffic?
 - [ ] Manual annotations display
 - [ ] VM set to always-on (no auto-shutdown)
@@ -324,11 +331,11 @@ gh issue list --repo kidconcept/deeptime --limit 50
 |---------|--------|----------------|------------------|
 | GCP Project Setup (#2) | ⬜ Not Started | 1 + 4 tasks | 0/5 |
 | Storage + TiTiler (#7) | ⬜ Not Started | 1 + 5 tasks | 0/6 |
-| Browse Server (#13) | ⬜ Not Started | 1 + 5 tasks | 0/6 |
+| Browse Server (#13) | ⬜ Not Started | 1 + 6 tasks | 1/7 |
 | Annotation Server (#37) | ⬜ Not Started | 1 + 5 tasks | 0/6 |
 | Testing & Docs (#43) | ⬜ Not Started | 1 + 5 tasks | 0/6 |
 
-**Total Progress**: 0/28 tasks completed
+**Total Progress**: 1/29 tasks completed
 
 ---
 
@@ -363,6 +370,6 @@ _None yet - MVP not started_
 - Automated VM scheduling (start/stop on schedule)
 - Direct TiTiler integration with CVAT (custom plugin)
 - Multi-COG support
-- User authentication via Cloud IAP
+- User authentication via Cloud IAP (requires HTTPS - see task #20)
 - Cost monitoring dashboard
 - Automated backup procedures

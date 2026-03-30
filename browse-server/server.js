@@ -1,3 +1,6 @@
+// Load environment variables from repo root
+require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
+
 const express = require('express');
 const path = require('path');
 
@@ -11,8 +14,12 @@ if (DEV_MODE) {
   app.set('x-powered-by', false);
 }
 
-// TiTiler configuration
-const TITILER_URL = 'https://titiler-1038056933229.us-central1.run.app';
+// TiTiler configuration from environment
+const TITILER_URL = process.env.TITILER_URL || 'https://titiler-5mk5kd2qna-uc.a.run.app';
+
+if (DEV_MODE) {
+  console.log(`🔧 DEV MODE: TiTiler URL: ${TITILER_URL}`);
+}
 
 // Dev mode: aggressively disable ALL caching
 if (DEV_MODE) {

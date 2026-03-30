@@ -1,12 +1,17 @@
 // scripts/refresh-cogs.js
+// Load environment variables from repo root
+require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
+
 const { Storage } = require('@google-cloud/storage');
 const fs = require('fs').promises;
 const path = require('path');
 
-// --- Configuration ---
-const BUCKET_NAME = 'deeptime-cogs-deeptime-491316';
-const TITILER_URL = 'https://titiler-1038056933229.us-central1.run.app';
+// --- Configuration from environment ---
+const BUCKET_NAME = process.env.BUCKET_NAME || 'deeptime-cogs-deeptime-491316';
+const TITILER_URL = process.env.TITILER_URL || 'https://titiler-5mk5kd2qna-uc.a.run.app';
 const OUTPUT_FILE = path.join(__dirname, '../browse-server/public/cogs.json');
+
+console.log(`📋 Config: Bucket=${BUCKET_NAME}, TiTiler=${TITILER_URL}`);
 // ---
 
 async function refreshCogs() {
