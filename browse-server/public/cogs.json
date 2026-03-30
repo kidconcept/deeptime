@@ -1,7 +1,7 @@
 [
   {
     "url": "gs://deeptime-cogs-deeptime-491316/18-Palms-Georeferenced-cog.tif",
-    "name": "18-Palms-Georeferenced-cog.tif",
+    "name": "18 Palms Georeferenced",
     "bounds": [
       -68.27796749615499,
       12.136807059464273,
@@ -14,7 +14,7 @@
   },
   {
     "url": "gs://deeptime-cogs-deeptime-491316/18palms-arbitrary-cog.tif",
-    "name": "18palms-arbitrary-cog.tif",
+    "name": "18 Palms Unreferenced",
     "bounds": [
       0,
       0,

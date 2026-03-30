@@ -5,11 +5,10 @@ export function displayMapInfo(cogData) {
     return;
   }
 
-  const { name, bounds, minzoom, maxzoom } = cogData;
+  const { name, bounds } = cogData;
 
   container.innerHTML = `
     <p><strong>Site Name:</strong> ${name}</p>
-    <p><strong>Zoom (Min/Max):</strong> ${minzoom} / ${maxzoom}</p>
     <p><strong>Bounds:</strong> ${bounds.join(', ')}</p>
   `;
 }
