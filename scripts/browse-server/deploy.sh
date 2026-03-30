@@ -20,7 +20,9 @@ if [ ! -f "$CONFIG_FILE" ]; then
 fi
 
 echo "📋 Loading configuration from: $CONFIG_FILE"
+set -a
 source "$CONFIG_FILE"
+set +a
 echo ""
 
 echo "🚀 Deploying Browse Server Updates"
