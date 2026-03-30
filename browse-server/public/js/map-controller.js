@@ -1,4 +1,5 @@
 let map;
+let isFirstLoad = true; // Track first load to delay satellite layer
 
 // Zoom configuration - all zoom levels managed here for consistency
 const ZOOM_CONFIG = {
@@ -8,6 +9,8 @@ const ZOOM_CONFIG = {
   SATELLITE_MAX_NATIVE: 18  // Esri satellite tiles available up to zoom 18
 };
 
+// Initialize empty map without any tile layers
+// Satellite layer will be added after first COG tiles are ready
 export function initializeMap() {
   map = L.map('map', {
     minZoom: ZOOM_CONFIG.MIN_ZOOM,
@@ -15,6 +18,12 @@ export function initializeMap() {
     zoomControl: true
   }).setView([0, 0], ZOOM_CONFIG.DEFAULT_ZOOM);
 
+  return map;
+}
+
+// Add satellite basemap layer after COG tiles are ready
+// Called after first successful COG tile load to avoid wasting bandwidth during cold start
+export function addSatelliteLayer(mapInstance) {
   // Using ESRI World Imagery via local proxy to avoid CORS issues
   // Tiles beyond maxNativeZoom will be scaled up automatically by Leaflet
   const satelliteLayer = L.tileLayer('/api/satellite/{z}/{y}/{x}', {
@@ -32,9 +41,7 @@ export function initializeMap() {
     console.log('Satellite tile unavailable at zoom', tile.coords.z, '(expected beyond', ZOOM_CONFIG.SATELLITE_MAX_NATIVE, ')');
   });
 
-  satelliteLayer.addTo(map);
-
-  return map;
+  satelliteLayer.addTo(mapInstance);
 }
 
 export function updateTileLayer(mapInstance, cogData) {
@@ -64,6 +71,21 @@ export function updateTileLayer(mapInstance, cogData) {
     }
   });
   
+  // On first load, listen for first successful tile to trigger satellite layer loading
+  // This ensures TiTiler is responsive before loading satellite imagery
+  if (isFirstLoad) {
+    cogLayer.on('tileload', function onFirstTile() {
+      // Dispatch event to signal tiles are ready
+      document.dispatchEvent(new CustomEvent('cogTilesReady'));
+      
+      // Remove this listener - only needed for first tile
+      cogLayer.off('tileload', onFirstTile);
+      
+      isFirstLoad = false;
+    });
+  }
+  
+  // Add COG layer to map (starts tile loading)
   cogLayer.addTo(mapInstance);
 }
 

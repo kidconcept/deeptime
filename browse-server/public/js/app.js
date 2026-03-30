@@ -1,4 +1,4 @@
-import { initializeMap, updateTileLayer, fitBounds } from './map-controller.js';
+import { initializeMap, updateTileLayer, fitBounds, addSatelliteLayer } from './map-controller.js';
 import { fetchCogConfig } from './cog-data-manager.js';
 import { populateCogSelector } from './ui/cog-selector.js';
 import { displayMetadata } from './ui/metadata-panel.js';
@@ -11,8 +11,9 @@ const state = {
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
-  showMessage('info', 'Initializing viewer...', { timeout: 2000 });
+  showMessage('info', 'Initializing viewer...');
   
+  // Initialize empty map (no layers yet)
   state.map = initializeMap();
   
   await checkDevMode();
@@ -20,7 +21,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   state.cogConfig = await fetchCogConfig();
   
   if (state.cogConfig.length === 0) {
-    showMessage('error', 'COG configuration is empty. Please run "npm run refresh-cogs".', { persistent: true });
+    showMessage('error', 'COG configuration is empty. Please run "npm run refresh-cogs".');
     return;
   }
 
@@ -28,6 +29,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Set default COG to the first one in the list
   state.currentCogUrl = state.cogConfig[0].url;
+  
+  // Show waiting message before loading tiles
+  showMessage('info', 'Waiting for tiles from server...');
+  
+  // Listen for first successful tile load (once only)
+  document.addEventListener('cogTilesReady', () => {
+    // Add satellite layer after COG tiles are ready
+    addSatelliteLayer(state.map);
+    showMessage('info', 'Tiles loaded successfully.');
+  }, { once: true });
+  
   loadCog(state.currentCogUrl);
 
   document.addEventListener('cogChanged', (e) => {
@@ -49,8 +61,6 @@ function loadCog(url) {
     updateTileLayer(state.map, cogData);
     fitBounds(state.map, cogData.bounds);
     displayMetadata(cogData);
-    
-    showMessage('info', 'COG loaded successfully.', { timeout: 3000 });
   } catch (error) {
     console.error('Error loading COG:', error);
     showMessage('error', `Error loading COG: ${error.message}`);
