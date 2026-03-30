@@ -354,17 +354,32 @@ browse-server/
 ├── server.js            # Express server with tile proxying
 └── public/
     ├── index.html       # Main page with Leaflet
-    ├── styles.css       # Responsive dark theme
+    ├── styles.css       # Tray-based UI styling
     ├── cogs.json        # COG metadata
     └── js/
         ├── app.js                      # Application initialization
         ├── cog-data-manager.js         # COG metadata handling
         ├── map-controller.js           # Leaflet map & zoom config
+        ├── tools/
+        │   └── coordinates-tool.js     # Click map to show lat/lon
         └── ui/
             ├── cog-selector.js         # COG selection UI
-            ├── message-bus.js          # Component communication
-            └── metadata-panel.js       # Metadata display
+            ├── message-bus.js          # Status messages
+            ├── map-info.js             # COG metadata display
+            └── tool-manager.js         # Tool activation system
 ```
+
+### UI Structure
+
+The application uses a **tray-based layout** with four main sections:
+
+1. **COG Selector** (`#cog-selector`) - Dropdown to switch between COG files
+2. **Map Info** (`#map-info`) - Current COG metadata (name, bounds, zoom levels)
+3. **Tools** (`#tools`) - Interactive map tools with icon buttons
+   - Coordinates tool: Click map to display lat/lon
+4. **Messages** (`#messages`) - Status updates and system messages
+
+**Loading Behavior**: Map initializes empty, COG tiles load first, then satellite layer loads after first tile arrives. This prevents bandwidth usage during TiTiler cold starts.
 
 ### Remote Deployment
 - **Directory**: `/var/www/leaflet-viewer/`
@@ -372,11 +387,13 @@ browse-server/
 - **Port**: 8081 (configurable via `.deploy-config`)
 
 ### Features
+- **Delayed Loading**: Satellite tiles only load after TiTiler responds (prevents wasted bandwidth on cold starts)
 - **Satellite Background**: Esri World Imagery with server-side CORS proxy
 - **COG Tiles**: TiTiler integration for Cloud Optimized GeoTIFFs
 - **Layer Priority**: COG data renders above satellite (zIndex: 1000 vs 0)
 - **Zoom Range**: 3-28 (satellite capped at native zoom 18, then scaled)
-- **Responsive UI**: Panel system for COG selection and metadata
+- **Interactive Tools**: Extensible tool system with coordinates display
+- **Status Messages**: Real-time feedback in tray message panel
 
 ---
 
@@ -387,10 +404,14 @@ browse-server/
 **Features**: ✅ Satellite map background, robust zoom, COG loading
 
 ### Recent Updates
-- Added Esri World Imagery satellite background with CORS proxy
-- Implemented centralized zoom configuration (ZOOM_CONFIG)
-- Refactored deployment scripts with proper phase separation
-- Created comprehensive deployment documentation
+- Restructured UI into tray-based layout with four sections
+- Added Tools section with extensible tool system
+- Implemented coordinates tool (click map to show lat/lon)
+- Added delayed loading to prevent satellite bandwidth usage during TiTiler cold starts
+- Renamed metadata panel to map-info for clarity
+- Simplified all container IDs (removed "-container" suffixes)
+- Added icon button UI for tools with visual active states
+- Implemented message panel for real-time status updates
 
 To check server status:
 ```bash

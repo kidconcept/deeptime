@@ -1,5 +1,5 @@
 export function populateCogSelector(cogDetails) {
-  const selector = document.getElementById('cog-selector');
+  const selector = document.getElementById('cog-selector-dropdown');
   selector.innerHTML = '';
 
   cogDetails.forEach(cog => {

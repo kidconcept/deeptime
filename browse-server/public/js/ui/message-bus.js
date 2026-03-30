@@ -12,7 +12,7 @@ export function showMessage(type, text) {
 }
 
 export function updateMessagesDisplay() {
-  const messageContainer = document.getElementById('message-list');
+  const messageContainer = document.getElementById('messages-content');
   if (!messageContainer) return;
   
   messageContainer.innerHTML = messages.map(msg => 

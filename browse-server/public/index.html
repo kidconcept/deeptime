@@ -10,13 +10,30 @@
 <body>
   <div id="app-container">
     <div id="map"></div>
-    <div id="sidebar">
-      <div id="cog-selector-container">
-        <label for="cog-selector">Select COG:</label>
-        <select id="cog-selector"></select>
+    <div id="tray">
+      <div id="cog-selector" class="tray-section">
+        <label for="cog-selector-dropdown">Select COG:</label>
+        <select id="cog-selector-dropdown"></select>
       </div>
-      <div id="metadata-container"></div>
-      <div id="message-list"></div>
+      
+      <div id="map-info" class="tray-section">
+        <h3>Map Info</h3>
+        <div id="map-info-content"></div>
+      </div>
+      
+      <div id="tools" class="tray-section">
+        <h3>Tools</h3>
+        <div class="tool-item">
+          <button id="coordinates-tool-btn" class="tool-icon-button coordinates-marker-icon" title="Show Coordinates">
+          </button>
+          <label class="tool-label">Coordinates</label>
+        </div>
+      </div>
+      
+      <div id="messages" class="tray-section">
+        <h3>Messages</h3>
+        <div id="messages-content"></div>
+      </div>
     </div>
   </div>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>

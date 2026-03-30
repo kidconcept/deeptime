@@ -1,8 +1,9 @@
 import { initializeMap, updateTileLayer, fitBounds, addSatelliteLayer } from './map-controller.js';
 import { fetchCogConfig } from './cog-data-manager.js';
 import { populateCogSelector } from './ui/cog-selector.js';
-import { displayMetadata } from './ui/metadata-panel.js';
+import { displayMapInfo } from './ui/map-info.js';
 import { showMessage, checkDevMode } from './ui/message-bus.js';
+import { init as initCoordinatesTool } from './tools/coordinates-tool.js';
 
 const state = {
   cogConfig: [],
@@ -15,6 +16,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   // Initialize empty map (no layers yet)
   state.map = initializeMap();
+  
+  // Initialize tools
+  initCoordinatesTool(state.map);
   
   await checkDevMode();
 
@@ -60,7 +64,7 @@ function loadCog(url) {
   try {
     updateTileLayer(state.map, cogData);
     fitBounds(state.map, cogData.bounds);
-    displayMetadata(cogData);
+    displayMapInfo(cogData);
   } catch (error) {
     console.error('Error loading COG:', error);
     showMessage('error', `Error loading COG: ${error.message}`);
