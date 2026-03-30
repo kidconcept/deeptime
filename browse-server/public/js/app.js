@@ -4,6 +4,7 @@ import { populateCogSelector } from './ui/cog-selector.js';
 import { displayMapInfo } from './ui/map-info.js';
 import { showMessage, checkDevMode } from './ui/message-bus.js';
 import { init as initCoordinatesTool } from './tools/coordinates-tool.js';
+import { init as initMeasureTool } from './tools/measure-tool.js';
 
 const state = {
   cogConfig: [],
@@ -19,6 +20,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   // Initialize tools
   initCoordinatesTool(state.map);
+  initMeasureTool(state.map);
   
   await checkDevMode();
 

@@ -151,6 +151,26 @@ html, body {
   display: none;
 }
 
+.measure-ruler-icon::before {
+  content: '📏';
+  font-size: 18px;
+  line-height: 1;
+}
+
+.measure-tool-active {
+  cursor: crosshair !important;
+}
+
+.measure-tool-active * {
+  cursor: crosshair !important;
+}
+
+.measure-popup .leaflet-popup-content {
+  margin: 8px 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
 
 .loading {
   color: #00a8e8;
