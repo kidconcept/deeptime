@@ -1,0 +1,20 @@
+# Browse Server Deployment Configuration
+# Copy this file to .deploy-config and customize for your environment
+# .deploy-config is gitignored and should never be committed
+
+# VM Configuration
+VM_NAME="browse-server"
+ZONE="us-central1-a"
+VM_STATIC_IP="34.61.65.156"
+MACHINE_TYPE="e2-micro"
+DISK_SIZE="20GB"
+IMAGE_FAMILY="ubuntu-2204-lts"
+IMAGE_PROJECT="ubuntu-os-cloud"
+
+# Application Configuration
+PORT="8081"
+APP_DIR="/var/www/leaflet-viewer"
+
+# Network Configuration
+NETWORK_TAG="browse-server"
+FIREWALL_RULE="allow-browse-server"

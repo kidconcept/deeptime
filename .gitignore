@@ -2,3 +2,4 @@ keys/
 .env
 .DS_Store
 node_modules/
+scripts/browse-server/.deploy-config

@@ -3,173 +3,378 @@
 **Feature #13**: Browse Server (24/7)  
 **Purpose**: A lightweight Node.js server with a Leaflet-based viewer for browsing large Cloud Optimized GeoTIFFs (COGs) of coral imagery via a TiTiler service.
 
-This guide provides all the necessary steps to deploy, manage, and shut down the Browse Server infrastructure on Google Cloud.
+This guide provides all the necessary steps to deploy, manage, and update the Browse Server infrastructure on Google Cloud.
 
 ---
 
 ## Quick Start
 
-**Prerequisites**:
-- Google Cloud SDK (`gcloud`) installed and authenticated.
-- `gsutil` and `gcloud compute` components are available.
+### First-Time Setup (New Environment)
 
-### 1. Deploy the Server
-
-To create the VM, configure the firewall, and deploy the application, run the master deployment script:
-
+1. **Configure deployment settings**:
 ```bash
-bash scripts/deploy-browse-server.sh
+cd scripts/browse-server
+cp .deploy-config.example .deploy-config
+# Edit .deploy-config with your environment details
 ```
 
-This command will:
-1.  **Start the VM** if it's stopped.
-2.  **Create the VM** and reserve a static IP if it doesn't exist.
-3.  **Configure firewall rules** to allow traffic on port 8081.
-4.  **Install Node.js and PM2** on the VM.
-5.  **Deploy the application**, install dependencies, and start it with PM2.
-
-The server will be available at `http://34.61.65.156:8081`.
-
-### 2. Stop the Server (to Save Costs)
-
-To stop the VM and prevent charges for CPU and RAM, run:
-
+2. **Provision the server** (creates VM, installs dependencies, deploys app):
 ```bash
-bash scripts/stop-browse-server.sh
+./provision.sh
 ```
 
-This will shut down the VM instance. You will still be billed for the static IP and the boot disk storage.
+The server will be available at the IP address specified in your config (e.g., `http://34.61.65.156:8081`).
+
+### Deploying Code Updates
+
+After making changes to the browse-server code:
+```bash
+cd scripts/browse-server
+./deploy.sh
+```
+
+This copies your latest code and restarts the application (~30 seconds).
 
 ---
 
-## Deployment Scripts
+## Available Commands
 
-The deployment process is managed by a set of scripts located in the `scripts/` directory.
-
-- **`deploy-browse-server.sh`**: The main script that orchestrates the entire deployment. It calls the other scripts in order.
-- **`stop-browse-server.sh`**: Stops the VM to save costs.
-- **`browse-server/`**: A directory containing the individual, numbered steps of the deployment:
-    - `01-create-vm.sh`: Creates the GCE instance and reserves the static IP.
-    - `02-configure-firewall.sh`: Creates the firewall rule.
-    - `03-setup-node.sh`: Installs Node.js and PM2.
-    - `04-deploy-app.sh`: Deploys the Node.js application and starts it with PM2.
-- **`utils.sh`**: Contains shared helper functions used by the deployment scripts.
+| Command | Purpose | When to Use |
+|---------|---------|-------------|
+| `./provision.sh` | Full setup from scratch | First deployment to new environment |
+| `./deploy.sh` | Update application code | Every time you make code changes |
+| `./start.sh` | Start the VM | After stopping VM to save costs |
+| `./stop.sh` | Stop the VM | To save costs when not in use |
+| `./logs.sh` | View application logs | Debugging, monitoring |
+| `./ssh.sh` | SSH into the VM | Manual server management |
 
 ---
 
-## VM Configuration
+## Configuration
 
-**VM Name**: `browse-server`  
-**Static IP**: `34.61.65.156`  
-**Machine Type**: e2-micro (2 vCPU, 1 GB RAM, shared-core)  
-**OS**: Ubuntu 22.04 LTS  
-**Boot Disk**: 20 GB standard persistent disk  
-**Region/Zone**: us-central1 / us-central1-a  
-**Network Tag**: `browse-server`
+### Deployment Configuration
+
+Edit `.deploy-config` (created from `.deploy-config.example`) to set:
+
+```bash
+VM_NAME="browse-server"              # VM instance name
+ZONE="us-central1-a"                 # GCP zone
+VM_STATIC_IP="34.61.65.156"          # Reserved static IP
+PORT="8081"                          # Application port
+MACHINE_TYPE="e2-micro"              # VM size
+DISK_SIZE="20GB"                     # Boot disk size
+IMAGE_FAMILY="ubuntu-2204-lts"       # OS image
+IMAGE_PROJECT="ubuntu-os-cloud"      # Image source project
+NETWORK_TAG="browse-server"          # Network tag for firewall
+APP_DIR="/var/www/leaflet-viewer"    # Application directory on VM
+```
+
+**Note**: `.deploy-config` is gitignored. Never commit credentials or environment-specific values.
+
+### Multiple Environments
+
+For staging/production environments:
+
+```bash
+cp .deploy-config.example .deploy-config-production
+cp .deploy-config.example .deploy-config-staging
+
+# Edit each with appropriate values
+# Then deploy:
+./provision.sh --config=.deploy-config-production
+./deploy.sh --config=.deploy-config-staging
+```
 
 ---
 
-## Access
+## Architecture
+
+### Deployment Phases
+
+**Phase 1: Infrastructure** (one-time)
+- Create GCE VM instance
+- Reserve and assign static IP
+- Configure firewall rules
+
+**Phase 2: Environment Setup** (one-time per VM)
+- Install Node.js runtime
+- Install PM2 process manager
+- Create application directory
+- Set permissions
+
+**Phase 3: Application Deployment** (repeatable)
+- Copy application code
+- Install npm dependencies
+- Start/restart application with PM2
+- Configure PM2 auto-start on boot
+
+### Script Organization
+
+```
+scripts/browse-server/
+├── .deploy-config.example    # Configuration template
+├── .deploy-config            # Your config (gitignored)
+│
+├── provision.sh              # Full setup (phases 1+2+3)
+├── deploy.sh                 # Code updates (phase 3 only)
+├── start.sh                  # Start stopped VM
+├── stop.sh                   # Stop running VM
+├── logs.sh                   # View PM2 logs
+├── ssh.sh                    # SSH to VM
+│
+└── _lib/                     # Internal scripts (don't run directly)
+    ├── create-vm.sh          # Phase 1: Infrastructure
+    ├── setup-environment.sh  # Phase 2: Node.js/PM2
+    └── deploy-app.sh         # Phase 3: Application
+```
+
+---
+
+## Detailed Usage
+
+### Initial Provisioning
+
+Creates everything from scratch:
+
+```bash
+./provision.sh
+```
+
+**What it does**:
+1. Checks if VM exists, creates if needed
+2. Reserves static IP if not already reserved
+3. Configures firewall rule for your port
+4. Installs Node.js v20 and PM2
+5. Deploys application code
+6. Starts application with PM2
+7. Configures PM2 to auto-start on boot
+
+**Time**: ~5-10 minutes (mostly VM creation and package installation)
+
+### Deploying Updates
+
+Updates only the application code:
+
+```bash
+./deploy.sh
+```
+
+**What it does**:
+1. Ensures VM is running
+2. Copies browse-server code to VM
+3. Stops old PM2 process
+4. Installs/updates npm dependencies
+5. Starts new PM2 process
+6. Saves PM2 configuration
+
+**Time**: ~30-60 seconds
+
+### Managing VM Lifecycle
+
+**Stop VM** (saves money on compute):
+```bash
+./stop.sh
+```
+You'll still be charged for static IP and disk storage, but not CPU/RAM.
+
+**Start VM** (after stopping):
+```bash
+./start.sh
+```
+Waits for VM to boot (~30 seconds), then shows status.
+
+**View logs** (real-time):
+```bash
+./logs.sh
+```
+Shows PM2 logs with auto-follow. Press Ctrl+C to exit.
+
+**SSH into VM**:
+```bash
+./ssh.sh
+```
+
+---
+
+## Troubleshooting
+
+### Deployment fails with "could not parse resource"
+
+**Issue**: Environment variables not loaded.
+
+**Solution**: Make sure `.deploy-config` exists and contains valid settings:
+```bash
+cat .deploy-config  # Verify contents
+```
+
+### Application won't start
+
+**Check logs**:
+```bash
+./logs.sh
+```
+
+**SSH in and check PM2**:
+```bash
+./ssh.sh
+pm2 list            # See all processes
+pm2 logs            # View logs
+pm2 restart leaflet-viewer  # Restart app
+```
+
+### Firewall blocking access
+
+Verify firewall rule:
+```bash
+gcloud compute firewall-rules describe allow-browse-server
+```
+
+### VM not responding
+
+Check VM status:
+```bash
+gcloud compute instances describe browse-server --zone=us-central1-a
+```
+
+Restart VM:
+```bash
+./stop.sh && ./start.sh
+```
+
+---
+
+## Cost Management
+
+**Active costs** (VM running):
+- e2-micro VM: ~$6-7/month
+- 20GB standard disk: ~$0.80/month
+- Static IP (in use): Free
+
+**Stopped costs** (VM stopped):
+- Static IP (reserved): ~$3/month
+- 20GB standard disk: ~$0.80/month
+
+**Total monthly cost**: 
+- Running 24/7: ~$8/month
+- Stopped: ~$4/month
+
+**To minimize costs**: Run `./stop.sh` when not actively using the server.
+
+---
+
+## Security Notes
+
+- SSH access uses Google Cloud's identity-aware proxy
+- The application runs as non-root user
+- Firewall only allows ingress on configured port
+- PM2 manages process isolation and auto-restart
+- Use `.deploy-config` (gitignored) for sensitive values
+
+---
+
+## Access Information
 
 **SSH Access**:
 ```bash
+./ssh.sh
+# Or directly:
 gcloud compute ssh browse-server --zone=us-central1-a
 ```
 
-**Web Access** (after deployment):
+**Web Access**:
 ```
-http://34.61.65.156:8081
+http://<YOUR_STATIC_IP>:<PORT>
+```
+
+Example: `http://34.61.65.156:8081`
+
+---
+
+## Maintenance
+
+### Updating Node.js/PM2
+
+SSH into the VM and update:
+```bash
+./ssh.sh
+sudo npm install -g pm2@latest
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt-get install -y nodejs
+```
+
+### Restarting Application
+
+```bash
+./ssh.sh
+pm2 restart leaflet-viewer
+```
+
+Or redeploy:
+```bash
+./deploy.sh
+```
+
+### Cleaning Up Old Deployments
+
+```bash
+./ssh.sh
+pm2 delete leaflet-viewer
+sudo rm -rf /var/www/leaflet-viewer
+```
+
+Then re-provision:
+```bash
+./provision.sh
 ```
 
 ---
 
-## Deployment Scripts
+## Application Details
 
-### VM Creation
-```bash
-./scripts/browse-vm-create.sh
-```
-
-Creates the VM instance with static IP reservation.
-
-### Node.js Setup
-```bash
-./scripts/browse-setup.sh
-```
-
-Installs Node.js 20.x, npm, and PM2 process manager.
-
-### Application Deployment
-```bash
-./scripts/browse-deploy.sh
-```
-
-Deploys the Leaflet viewer application to `/var/www/leaflet-viewer/` on the VM.
-
-### Firewall Configuration
-```bash
-./scripts/browse-firewall.sh
-```
-
-Opens port 8081 for public web access.
-
-**Firewall Rule**: `allow-browse-server`
-- Port: TCP 8081
-- Direction: INGRESS
-- Source: 0.0.0.0/0 (public)
-- Target: VMs with tag `browse-server`
-- Status: Active
-
----
-
-## Cost Estimate
-
-- **VM**: e2-micro = ~$7/month (24/7)
-- **Static IP**: ~$3/month when attached to running VM
-- **Network egress**: Minimal (<$1/month)
-- **Total**: ~$11/month
-
-**Savings**: 88% cost reduction vs e2-medium CVAT browse server
-
----
-
-## Software Versions
-
-- **Node.js**: v20.20.0 (LTS)
-- **npm**: 10.8.2
-- **PM2**: 6.0.14
-
----
-
-## Application Structure
-
-**Local directory**: `browse-server/`  
-**Remote directory**: `/var/www/leaflet-viewer/`
-
+### Local Structure
 ```
 browse-server/
 ├── package.json          # Express dependency
-├── server.js            # Express static file server (port 8081)
+├── server.js            # Express server with tile proxying
 └── public/
     ├── index.html       # Main page with Leaflet
-    ├── viewer.js        # Map configuration & TiTiler integration
-    └── styles.css       # Responsive dark theme
+    ├── styles.css       # Responsive dark theme
+    ├── cogs.json        # COG metadata
+    └── js/
+        ├── app.js                      # Application initialization
+        ├── cog-data-manager.js         # COG metadata handling
+        ├── map-controller.js           # Leaflet map & zoom config
+        └── ui/
+            ├── cog-selector.js         # COG selection UI
+            ├── message-bus.js          # Component communication
+            └── metadata-panel.js       # Metadata display
 ```
 
-## Status
+### Remote Deployment
+- **Directory**: `/var/www/leaflet-viewer/`
+- **Process Manager**: PM2 (auto-restart on crash, auto-start on boot)
+- **Port**: 8081 (configurable via `.deploy-config`)
 
-- [x] **Task #14**: VM created with static IP
-- [x] **Task #15**: Node.js and npm installation
-- [x] **Task #16**: Firewall rules configured
-- [x] **Task #17**: Leaflet viewer deployed
-- [x] **Task #18**: TiTiler COG integration (with non-georeferenced handling)
-- [x] **Task #19**: PM2 service running (auto-start on boot pending)
+### Features
+- **Satellite Background**: Esri World Imagery with server-side CORS proxy
+- **COG Tiles**: TiTiler integration for Cloud Optimized GeoTIFFs
+- **Layer Priority**: COG data renders above satellite (zIndex: 1000 vs 0)
+- **Zoom Range**: 3-28 (satellite capped at native zoom 18, then scaled)
+- **Responsive UI**: Panel system for COG selection and metadata
 
-## Server Status
+---
 
-**Server is LIVE**: ✅ Running on PM2  
-**URL**: http://34.61.65.156:8081  
-**Health Check**: http://34.61.65.156:8081/health
+## Current Status
+
+**Server**: ✅ Live at http://34.61.65.156:8081  
+**Deployment Scripts**: ✅ Fully refactored and documented  
+**Features**: ✅ Satellite map background, robust zoom, COG loading
+
+### Recent Updates
+- Added Esri World Imagery satellite background with CORS proxy
+- Implemented centralized zoom configuration (ZOOM_CONFIG)
+- Refactored deployment scripts with proper phase separation
+- Created comprehensive deployment documentation
 
 To check server status:
 ```bash
