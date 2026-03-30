@@ -13,7 +13,6 @@ This guide provides all the necessary steps to deploy, manage, and update the Br
 
 - Google Cloud SDK (`gcloud`) installed and authenticated
 - Root `.env` file configured (shared by tile and browse deployments)
-- No root `npm install` required for browse-server deployment
 
 ### First-Time Setup (New Environment)
 
@@ -84,7 +83,6 @@ The browse server reads configuration from a `.env` file in the repository root.
 **Dependency scope**:
 - Deploy and provision scripts use shell + `gcloud`.
 - Node package dependencies are installed from `browse-server/package.json` on the VM.
-- Root `package.json` / root `node_modules/` are not required for deployment.
 
 **Required variables**:
 ```bash
