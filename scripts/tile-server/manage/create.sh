@@ -170,6 +170,15 @@ if [ -n "$SITE_NAME" ]; then
   /opt/homebrew/bin/gdal_edit.py -mo "SITE_NAME=${SITE_NAME}" temp.vrt
 fi
 
+# Add georeferencing type metadata
+if [ "$ARBITRARY_MODE" = true ]; then
+  echo "Adding georeferencing type: arbitrary"
+  /opt/homebrew/bin/gdal_edit.py -mo "GEOREF_TYPE=arbitrary" temp.vrt
+else
+  echo "Adding georeferencing type: referenced"
+  /opt/homebrew/bin/gdal_edit.py -mo "GEOREF_TYPE=referenced" temp.vrt
+fi
+
 # Determine compression based on band count
 if [ "$BAND_COUNT" -ge 3 ]; then
   PROFILE="jpeg"

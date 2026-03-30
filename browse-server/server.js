@@ -76,6 +76,43 @@ app.get('/api/titiler/*', async (req, res) => {
   }
 });
 
+// Proxy endpoint for Esri satellite tiles to avoid CORS issues
+app.get('/api/satellite/:z/:y/:x', async (req, res) => {
+  try {
+    let { z, y, x } = req.params;
+    z = parseInt(z);
+    
+    // Cap satellite tiles at zoom 18 - beyond that, let Leaflet scale the tiles
+    const maxSatelliteZoom = 18;
+    if (z > maxSatelliteZoom) {
+      console.log(`Satellite tile request at z${z} exceeds max (${maxSatelliteZoom}), returning 404`);
+      return res.status(404).send('Tile not available beyond zoom 18');
+    }
+    
+    const url = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`;
+    
+    console.log(`Proxying satellite tile: ${z}/${y}/${x}`);
+    
+    const fetch = (await import('node-fetch')).default;
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      console.error(`Esri tile returned ${response.status}`);
+      throw new Error(`Esri tile returned ${response.status}`);
+    }
+    
+    const contentType = response.headers.get('content-type');
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache satellite tiles for 24 hours
+    
+    const buffer = await response.arrayBuffer();
+    res.send(Buffer.from(buffer));
+  } catch (error) {
+    console.error('Satellite tile proxy error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Endpoint to expose the current mode to the frontend
 app.get('/api/dev-mode', (req, res) => {
   res.json({ isDevMode: DEV_MODE });

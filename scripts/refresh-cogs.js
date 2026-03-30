@@ -45,6 +45,7 @@ async function refreshCogs() {
           bounds: info.bounds,
           minzoom: info.minzoom,
           maxzoom: info.maxzoom,
+          type: info.metadata?.GEOREF_TYPE || 'unknown',
         };
       } catch (error) {
         console.error(`-  ERROR: Could not process ${file.name}.`, error);
