@@ -17,34 +17,41 @@
         <p>Loading coral reef data, thanks for your patience while our tiles are streaming. It takes a moment to warm up the COG server. This project is under development, come back for more data and more features!</p>
       </div>
     </div>
-    <div id="tray">
-      <div id="cog-selector" class="tray-section">
-        <label for="cog-selector-dropdown">Select COG:</label>
-        <select id="cog-selector-dropdown"></select>
+    <div id="tray-container">
+      <div id="tray-tabs">
+        <button id="tray-toggle-btn" aria-label="Toggle tray" aria-expanded="true" title="Toggle panel"></button>
       </div>
-      
-      <div id="map-info" class="tray-section">
-        <h3>Map Info</h3>
-        <div id="map-info-content"></div>
-      </div>
-      
-      <div id="tools" class="tray-section">
-        <h3>Tools</h3>
-        <div class="tool-item">
-          <button id="coordinates-tool-btn" class="tool-icon-button coordinates-marker-icon" title="Show Coordinates">
-          </button>
-          <label class="tool-label">Coordinates</label>
+      <div id="tray">
+        <div id="tray-inner">
+          <div id="cog-selector" class="tray-section">
+            <label for="cog-selector-dropdown">Select COG:</label>
+            <select id="cog-selector-dropdown"></select>
+          </div>
+          
+          <div id="map-info" class="tray-section">
+            <h3>Map Info</h3>
+            <div id="map-info-content"></div>
+          </div>
+          
+          <div id="tools" class="tray-section">
+            <h3>Tools</h3>
+            <div class="tool-item">
+              <button id="coordinates-tool-btn" class="tool-icon-button coordinates-marker-icon" title="Show Coordinates">
+              </button>
+              <label class="tool-label">Coordinates</label>
+            </div>
+            <div class="tool-item">
+              <button id="measure-tool-btn" class="tool-icon-button measure-ruler-icon" title="Measure Distance">
+              </button>
+              <label class="tool-label">Measure</label>
+            </div>
+          </div>
+          
+          <div id="messages" class="tray-section">
+            <h3>Messages</h3>
+            <div id="messages-content"></div>
+          </div>
         </div>
-        <div class="tool-item">
-          <button id="measure-tool-btn" class="tool-icon-button measure-ruler-icon" title="Measure Distance">
-          </button>
-          <label class="tool-label">Measure</label>
-        </div>
-      </div>
-      
-      <div id="messages" class="tray-section">
-        <h3>Messages</h3>
-        <div id="messages-content"></div>
       </div>
     </div>
   </div>

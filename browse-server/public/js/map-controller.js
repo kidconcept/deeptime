@@ -52,7 +52,7 @@ export function updateTileLayer(mapInstance, cogData) {
     }
   });
 
-  const tileUrl = `http://localhost:8081/api/titiler/cog/tiles/{z}/{x}/{y}?url=${encodeURIComponent(cogData.url)}`;
+ const tileUrl = `/api/titiler/cog/tiles/{z}/{x}/{y}?url=${encodeURIComponent(cogData.url)}`;
   
   // Allow COG to be visible at all map zoom levels
   // TiTiler will serve tiles at any zoom, scaling as needed

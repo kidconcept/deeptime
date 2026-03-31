@@ -5,6 +5,7 @@ import { displayMapInfo } from './ui/map-info.js';
 import { showMessage, checkDevMode } from './ui/message-bus.js';
 import { init as initCoordinatesTool } from './tools/coordinates-tool.js';
 import { init as initMeasureTool } from './tools/measure-tool.js';
+import { initTray } from './ui/tray.js';
 
 const state = {
   cogConfig: [],
@@ -17,7 +18,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   // Initialize empty map (no layers yet)
   state.map = initializeMap();
-  
+
+  // Initialize tray toggle
+  initTray();
+
   // Initialize tools
   initCoordinatesTool(state.map);
   initMeasureTool(state.map);
@@ -35,18 +39,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Set default COG to the first one in the list
   state.currentCogUrl = state.cogConfig[0].url;
-  
-  // Show waiting message before loading tiles
-  showMessage('info', 'Waiting for tiles from server...');
-  
+
+  // Start cold-start monitoring before loading
+  const stopMonitoring = startLoadMonitoring();
+
   // Listen for first successful tile load (once only)
   document.addEventListener('cogTilesReady', () => {
+    stopMonitoring();
     // Add satellite layer after COG tiles are ready
     addSatelliteLayer(state.map);
-    showMessage('info', 'Tiles loaded successfully.');
+    showMessage('info', 'Tiles streaming — zoom and pan to explore');
     document.getElementById('loading-overlay').classList.add('hidden');
   }, { once: true });
-  
+
   loadCog(state.currentCogUrl);
 
   document.addEventListener('cogChanged', (e) => {
@@ -55,6 +60,41 @@ document.addEventListener('DOMContentLoaded', async () => {
     loadCog(state.currentCogUrl);
   });
 });
+
+function startLoadMonitoring() {
+  let done = false;
+
+  const t10 = setTimeout(() => {
+    if (!done) showMessage('info', 'Tile server may be cold-starting...');
+  }, 10000);
+
+  const t30 = setTimeout(() => {
+    if (!done) showMessage('info', 'Still warming up — cold starts can take 1-2 minutes');
+  }, 30000);
+
+  const t45 = setTimeout(() => {
+    if (!done) showMessage('info', 'Thanks for your patience, almost there...');
+  }, 45000);
+
+  fetch('/api/titiler/healthz')
+    .then(res => {
+      if (!done) {
+        clearTimeout(t30);
+        clearTimeout(t45);
+        showMessage('info', 'Tile server is ready. Reading image data from cloud storage...');
+      }
+    })
+    .catch(() => {
+      // healthz failure is non-fatal — tile loading may still succeed
+    });
+
+  return function stop() {
+    done = true;
+    clearTimeout(t10);
+    clearTimeout(t30);
+    clearTimeout(t45);
+  };
+}
 
 function loadCog(url) {
   const cogData = state.cogConfig.find(c => c.url === url);
