@@ -41,14 +41,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   state.currentCogUrl = state.cogConfig[0].url;
 
   // Start cold-start monitoring before loading
-  const stopMonitoring = startLoadMonitoring();
+  const { stop: stopMonitoring, startTime: loadStartTime } = startLoadMonitoring();
 
   // Listen for first successful tile load (once only)
   document.addEventListener('cogTilesReady', () => {
     stopMonitoring();
+    const elapsed = ((Date.now() - loadStartTime) / 1000).toFixed(1);
     // Add satellite layer after COG tiles are ready
     addSatelliteLayer(state.map);
-    showMessage('info', 'Tiles streaming — zoom and pan to explore');
+    showMessage('info', `Tiles streaming — response time: ${elapsed}s`);
+    showMessage('info', 'Map ready — zoom and pan to explore');
     document.getElementById('loading-overlay').classList.add('hidden');
   }, { once: true });
 
@@ -63,9 +65,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 function startLoadMonitoring() {
   let done = false;
+  const startTime = Date.now();
 
   const t10 = setTimeout(() => {
-    if (!done) showMessage('info', 'Tile server may be cold-starting...');
+    if (!done) showMessage('info', 'Tile server warming up...');
   }, 10000);
 
   const t30 = setTimeout(() => {
@@ -88,11 +91,14 @@ function startLoadMonitoring() {
       // healthz failure is non-fatal — tile loading may still succeed
     });
 
-  return function stop() {
-    done = true;
-    clearTimeout(t10);
-    clearTimeout(t30);
-    clearTimeout(t45);
+  return {
+    stop() {
+      done = true;
+      clearTimeout(t10);
+      clearTimeout(t30);
+      clearTimeout(t45);
+    },
+    startTime
   };
 }
 
