@@ -80,9 +80,9 @@ gcloud compute ssh "$VM_NAME" --zone="$ZONE" --command="
 
   # Start/restart app with PM2
   if pm2 describe leaflet-viewer >/dev/null 2>&1; then
-    pm2 restart leaflet-viewer --update-env
+    NODE_ENV=production pm2 restart leaflet-viewer --update-env
   else
-    pm2 start server.js --name leaflet-viewer --cwd \"\$APP_DIR/browse-server\" -- --production
+    pm2 start npm --name leaflet-viewer --cwd "$APP_DIR/browse-server" -- start
   fi
 
   pm2 save
