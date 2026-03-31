@@ -16,7 +16,7 @@ export function updateMessagesDisplay() {
   if (!messageContainer) return;
   
   messageContainer.innerHTML = messages.slice().reverse().map(msg => 
-    `<div>${msg.timestamp} - ${msg.text}</div>`
+    `<div>${msg.text}</div>`
   ).join('');
 }
 

@@ -35,12 +35,18 @@ if (DEV_MODE) {
 }
 
 // Serve static files from the public directory
-app.use(express.static(path.join(__dirname, 'public'), {
+// In production: ETags + Last-Modified enabled for conditional GETs (304s save bandwidth).
+// maxAge:0 is intentional without cache-busted filenames — browser revalidates but won't re-download unchanged files.
+app.use(express.static(path.join(__dirname, 'public'), DEV_MODE ? {
   etag: false,
   lastModified: false,
   maxAge: 0,
   immutable: false,
   cacheControl: false
+} : {
+  etag: true,
+  lastModified: true,
+  maxAge: 0
 }));
 
 // Proxy endpoint for TiTiler to avoid CORS issues
@@ -55,11 +61,9 @@ app.get('/api/titiler/*', async (req, res) => {
     console.log(`Proxying TiTiler request: ${url}`);
     
     const fetch = (await import('node-fetch')).default;
-    const response = await fetch(url, {
-      headers: {
-        'Cache-Control': 'no-cache'
-      }
-    });
+    const response = await fetch(url, DEV_MODE ? {
+      headers: { 'Cache-Control': 'no-cache' }
+    } : {});
     
     if (!response.ok) {
       const errorBody = await response.text();
@@ -71,9 +75,11 @@ app.get('/api/titiler/*', async (req, res) => {
     res.setHeader('Content-Type', contentType);
     
     if (contentType && contentType.includes('application/json')) {
+      if (!DEV_MODE) res.setHeader('Cache-Control', 'public, max-age=300'); // metadata: 5 min
       const data = await response.json();
       res.json(data);
     } else {
+      if (!DEV_MODE) res.setHeader('Cache-Control', 'public, max-age=3600'); // image tiles: 1 hour
       const buffer = await response.arrayBuffer();
       res.send(Buffer.from(buffer));
     }
