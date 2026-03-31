@@ -1,3 +1,6 @@
+/* ============================================================
+   BASE
+   ============================================================ */
 html, body {
   margin: 0;
   padding: 0;
@@ -7,17 +10,58 @@ html, body {
   overflow: hidden;
 }
 
+/* ============================================================
+   LAYOUT
+   ============================================================ */
 #app-container {
   display: flex;
   height: 100vh;
 }
 
 #map {
-  flex-grow: 1;
+  flex: 1;
   height: 100%;
-  background-color: white;
+  background-color: #f9f7f2;
+  position: relative;
 }
 
+/* ============================================================
+   LOADING OVERLAY
+   ============================================================ */
+#loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: #f9f7f2;
+  gap: 24px;
+}
+
+#loading-overlay video {
+  width: 200px;
+  border-radius: 12px;
+}
+
+#loading-overlay p {
+  color: #495057;
+  font-size: 1rem;
+  text-align: center;
+  max-width: 420px;
+  line-height: 1.4;
+  padding: 0 24px;
+  margin: 0;
+}
+
+#loading-overlay.hidden {
+  display: none;
+}
+
+/* ============================================================
+   TRAY
+   ============================================================ */
 #tray {
   width: 350px;
   padding: 15px;
@@ -46,6 +90,7 @@ html, body {
   letter-spacing: 0.5px;
 }
 
+/* COG Selector */
 #cog-selector label {
   display: block;
   margin-bottom: 5px;
@@ -59,11 +104,13 @@ html, body {
   padding: 5px;
 }
 
+/* Map Info */
 #map-info-content {
   word-wrap: break-word;
   font-size: 13px;
 }
 
+/* Messages */
 #messages-content {
   padding: 10px;
   background-color: #fff;
@@ -84,7 +131,9 @@ html, body {
   border-bottom: none;
 }
 
-/* Tools Section */
+/* ============================================================
+   TOOLS
+   ============================================================ */
 .tool-item {
   display: flex;
   align-items: center;
@@ -117,11 +166,6 @@ html, body {
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-.tool-icon-button .icon {
-  display: block;
-  line-height: 1;
-}
-
 .tool-label {
   font-size: 13px;
   color: #495057;
@@ -129,7 +173,7 @@ html, body {
   user-select: none;
 }
 
-/* Coordinates tool - use Leaflet marker icon */
+/* Coordinates tool */
 .coordinates-marker-icon {
   background-image: url('https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png');
   background-size: 14px auto;
@@ -137,32 +181,22 @@ html, body {
   background-position: center;
 }
 
-/* Coordinates tool cursor - CSS built-in crosshair */
-.coordinates-tool-active {
+.coordinates-tool-active,
+.coordinates-tool-active *,
+.measure-tool-active,
+.measure-tool-active * {
   cursor: crosshair !important;
 }
 
-.coordinates-tool-active * {
-  cursor: crosshair !important;
-}
-
-/* Coordinates popup - remove arrow tip */
 .coordinates-popup .leaflet-popup-tip-container {
   display: none;
 }
 
+/* Measure tool */
 .measure-ruler-icon::before {
   content: '📏';
   font-size: 18px;
   line-height: 1;
-}
-
-.measure-tool-active {
-  cursor: crosshair !important;
-}
-
-.measure-tool-active * {
-  cursor: crosshair !important;
 }
 
 .measure-popup .leaflet-popup-content {
@@ -171,148 +205,9 @@ html, body {
   font-weight: 600;
 }
 
-
-.loading {
-  color: #00a8e8;
-  font-weight: 600;
-  animation: pulse 1.5s ease-in-out infinite;
-}
-
-.loading.hidden {
-  display: none;
-}
-
-.coord-system {
-  margin-top: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  border-radius: 4px;
-  font-size: 0.85rem;
-  font-weight: 500;
-}
-
-.coord-system.unreferenced {
-  background-color: #664400;
-  border-left: 3px solid #ff9800;
-  color: #ffcc80;
-}
-
-.coord-system.referenced {
-  background-color: #004400;
-  border-left: 3px solid #4caf50;
-  color: #a5d6a7;
-}
-
-.coord-system.hidden {
-  display: none;
-}
-
-/* Metadata Display */
-.metadata-container {
-  background-color: #222;
-  padding: 0.75rem 1.5rem;
-  border-bottom: 1px solid #444;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 0.75rem;
-  font-size: 0.85rem;
-}
-
-.metadata-item {
-  background-color: #2c2c2c;
-  padding: 0.5rem 0.75rem;
-  border-radius: 4px;
-  border-left: 3px solid #555;
-}
-
-.metadata-item strong {
-  color: #b0b0b0;
-  display: block;
-  margin-bottom: 0.25rem;
-  font-size: 0.75rem;
-  text-transform: uppercase;
-}
-
-.metadata-item span {
-  color: #e0e0e0;
-  font-family: 'Courier New', monospace;
-}
-
-.metadata-item.type-properly { border-color: #4caf50; }
-.metadata-item.type-arbitrarily { border-color: #ff9800; }
-.metadata-item.type-none { border-color: #f44336; }
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
-}
-
-/* Map */
-#map {
-  flex: 1;
-  width: 100%;
-  background-color: #0a0a0a;
-}
-
-/* Footer */
-.footer {
-  background-color: #2c2c2c;
-  padding: 0.5rem 1.5rem;
-  border-top: 1px solid #444;
-  text-align: center;
-  font-size: 0.85rem;
-  color: #888;
-}
-
-.footer a {
-  color: #00a8e8;
-  text-decoration: none;
-}
-
-.footer a:hover {
-  text-decoration: underline;
-}
-
-/* Responsive Design */
-@media (max-width: 768px) {
-  .header {
-    padding: 0.75rem 1rem;
-  }
-
-  .header h1 {
-    font-size: 1.2rem;
-  }
-
-  .controls {
-    padding: 0.5rem 1rem;
-  }
-
-  #cog-selector {
-    max-width: 100%;
-  }
-
-  .coordinates {
-    font-size: 0.8rem;
-    padding: 0.4rem 0.8rem;
-  }
-}
-
-@media (max-width: 480px) {
-  .header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .header-info {
-    width: 100%;
-  }
-
-  .coordinates {
-    width: 100%;
-    text-align: center;
-  }
-}
-
-/* Leaflet popup customization */
+/* ============================================================
+   LEAFLET OVERRIDES
+   ============================================================ */
 .leaflet-popup-content-wrapper {
   background-color: #2c2c2c;
   color: #e0e0e0;
@@ -323,7 +218,6 @@ html, body {
   background-color: #2c2c2c;
 }
 
-/* Leaflet control customization */
 .leaflet-control-scale-line {
   background-color: rgba(44, 44, 44, 0.8);
   border-color: #00a8e8;

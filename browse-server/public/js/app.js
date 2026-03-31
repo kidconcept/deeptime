@@ -44,12 +44,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Add satellite layer after COG tiles are ready
     addSatelliteLayer(state.map);
     showMessage('info', 'Tiles loaded successfully.');
+    document.getElementById('loading-overlay').classList.add('hidden');
   }, { once: true });
   
   loadCog(state.currentCogUrl);
 
   document.addEventListener('cogChanged', (e) => {
     state.currentCogUrl = e.detail.url;
+    document.getElementById('loading-overlay').classList.remove('hidden');
     loadCog(state.currentCogUrl);
   });
 });

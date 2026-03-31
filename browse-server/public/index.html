@@ -9,7 +9,14 @@
 </head>
 <body>
   <div id="app-container">
-    <div id="map"></div>
+    <div id="map">
+      <div id="loading-overlay">
+        <video autoplay loop muted playsinline>
+          <source src="image/wiseturtle.webm" type="video/webm">
+        </video>
+        <p>Loading coral reef data, thanks for your patience while our tiles are streaming. It takes a moment to warm up the COG server. This project is under development, come back for more data and more features!</p>
+      </div>
+    </div>
     <div id="tray">
       <div id="cog-selector" class="tray-section">
         <label for="cog-selector-dropdown">Select COG:</label>
