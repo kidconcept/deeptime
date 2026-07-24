@@ -35,7 +35,9 @@ Example target questions:
 5. Uncertainty, missingness, source quality, and assumptions should be visible by default.
 6. The platform should support common research formats: GeoJSON, CSV, GeoTIFF, NetCDF, GeoPackage, Shapefile, PDF, and citation exports.
 7. Public datasets, partner datasets, and researcher-contributed data should use the same evidence model.
-8. The open-source core should be useful even without hosted Deeptime infrastructure.
+8. Ryu should be the public source catalog and discovery layer, not the owner of Deeptime user credentials.
+9. Deeptime should own user and workspace auth, provider credentials, source access execution, generated assets, transformations, and provenance.
+10. The open-source core should be useful even without hosted Deeptime infrastructure.
 
 ## Stakeholders
 
@@ -63,23 +65,42 @@ Deeptime should organize evidence around durable source families rather than one
 7. Evidence and policy documents
 8. Researcher-contributed observations, analyses, and local knowledge
 
-The first MVP should cover only a small subset. The architecture should still avoid hard-coding Deeptime around Oregon, whales, fisheries, rasters, or any single source provider.
+Early implementations can cover only a small subset. The architecture should still avoid hard-coding Deeptime around any one region, species group, stakeholder, data type, or source provider.
 
 ## Ideal Server Architecture
 
-The north-star architecture should be modular. Deeptime should not become one large map server that owns ingestion, analysis, exports, AI, and collaboration in one process.
+The north-star architecture should be modular. Deeptime should not become one large map server that owns discovery, authentication, ingestion, analysis, exports, AI, and collaboration in one process.
+
+Ryu and Deeptime should have a clean boundary:
+
+- **Ryu** is the public catalog and discovery layer for marine data sources. It exposes source records, provider records, endpoint templates, access requirements, supported formats, citations, licenses, caveats, update cadence, and public source-health signals through API and MCP surfaces.
+- **Deeptime** owns users, workspaces, provider connections, credentials, source access execution, transformations, generated assets, provenance, map experiences, evidence workspaces, analysis jobs, dossiers, and exports.
+
+Ryu should not store Deeptime user secrets or decide workspace-specific permissions. Deeptime may use Ryu to discover how a source can be accessed, but Deeptime should execute that access using Deeptime-owned user or workspace credentials.
 
 ```text
+Ryu public catalog API/MCP
+  -> indexes external data providers
+  -> exposes provider records
+  -> exposes source records
+  -> exposes endpoint templates
+  -> exposes auth requirements
+  -> exposes licenses, citations, caveats
+  -> exposes public source-health signals
+
 Frontend clients
-  -> App API
-      -> Layer and source catalog
+  -> Deeptime App API
+      -> User and workspace auth
+      -> Provider connections and credentials
+      -> Source access executor
+      -> Workspace layer catalog
       -> Tile and feature services
       -> Workspace and saved-view service
       -> Workflow and job service
       -> Dossier and export service
 
 Workflow and job service
-  -> Source import workers
+  -> Source fetch and import workers
   -> Deterministic analysis workers
   -> Provenance writer
   -> AI planning and review service
@@ -87,23 +108,40 @@ Workflow and job service
 Storage
   -> Postgres/PostGIS for queryable spatial records
   -> pgvector or external index for source/document retrieval when needed
+  -> secret storage for provider credentials and refresh tokens
   -> Object storage for source snapshots, rasters, generated artifacts, and exports
 ```
 
 Primary service boundaries:
 
 - Frontend clients: MapLibre map, lightweight embeds, evidence dossier views, and scripted API clients.
-- App API: workspaces, saved views, candidate areas, permissions, comments, review state, and orchestration entry points.
-- Layer and source catalog: layer definitions, source metadata, citations, licenses, update cadence, source versions, known limitations, and available assets.
+- Ryu public catalog API/MCP: provider and source discovery, endpoint templates, access requirements, supported formats, citations, licenses, caveats, update cadence, and public health signals. Ryu does not store Deeptime user secrets or workspace permissions.
+- Deeptime App API: users, workspaces, saved views, candidate areas, permissions, comments, review state, provider connections, source access requests, and orchestration entry points.
+- Provider connections and credentials: Deeptime-managed OAuth connections, API keys, refresh tokens, service accounts, access policies, and short-lived internal access grants.
+- Workspace layer catalog: layer definitions derived from Ryu source records, Deeptime-generated assets, workspace-specific visibility, styles, provenance links, and known limitations.
 - Tile and feature services: raster tiles, vector features, and eventually vector tiles without exposing storage details to clients.
 - Workflow and job service: asynchronous imports, spatial joins, area summaries, exports, dossier generation, retries, and job status.
-- Source import workers: download, snapshot, validate, normalize, clip, simplify, and hash incoming datasets.
+- Source fetch and import workers: use Deeptime-owned provider credentials to download, query, snapshot, validate, normalize, clip, simplify, and hash incoming datasets.
 - Deterministic analysis workers: Python, R, GDAL, and PostGIS workflows for scientific and geospatial transformations.
 - Provenance writer: lineage records for sources, retrieval dates, parameters, transformations, assumptions, uncertainty, artifacts, and workflow versions.
 - AI planning and review service: source-grounded planning, tool selection, ambiguity checks, synthesis, and output review.
 - Dossier and export service: evidence bundles, maps, charts, CSV, GeoJSON, GeoTIFF, PDF, and citation packages.
 
-The current repository implements only a small part of this future shape: a browser map server, static frontend assets, a raster tile path, and deployment scripts. The next step is to turn that foundation into a source-agnostic map and layer API.
+Implementations should be allowed to start small, but the architecture should keep a clear path from simple map layers to source catalogs, deterministic workflows, provenance, and evidence dossiers.
+
+### Ryu-Deeptime Handshake
+
+The default handshake should be catalog-only from Ryu and auth-aware from Deeptime.
+
+1. Deeptime asks Ryu for sources relevant to a place, theme, provider, format, or evidence family.
+2. Ryu returns public `SourceCatalogRecord` objects with provider metadata, endpoint templates, access requirements, supported formats, license, citation, caveats, and update cadence.
+3. Deeptime checks whether the current user or workspace has the required provider connection.
+4. If credentials are required, Deeptime prompts for or uses a Deeptime-managed provider connection.
+5. Deeptime fetches or queries the source directly from Deeptime backend services or approved browser paths.
+6. Deeptime snapshots, transforms, stores, and serves generated assets.
+7. Deeptime records provenance linking generated assets and evidence outputs back to Ryu source IDs.
+
+This keeps Ryu reusable as a public marine source catalog while allowing Deeptime to support multiple users with different credentials across the same providers.
 
 ## Product Layers
 
@@ -111,7 +149,7 @@ The current repository implements only a small part of this future shape: a brow
 
 Build a stable map and layer contract before adding analysis complexity.
 
-The near-term substrate should support:
+The mapping substrate should support:
 
 - a base map suitable for marine and coastal context
 - raster and vector overlays through one layer API
@@ -123,31 +161,46 @@ The near-term substrate should support:
 
 MapLibre should become the primary map interface for layer-rich work. Leaflet can remain useful for lightweight embedded views.
 
-### 2. Source And Layer Catalog
+### 2. Source Discovery And Layer Catalog
 
-Introduce source metadata early, even if the first implementation is static JSON.
+Separate public source discovery from Deeptime-specific access and use.
 
-Each source should track:
+Ryu should track public catalog fields:
 
 - source identity
 - provider
-- source URL or local snapshot path
+- source URL, endpoint template, or documentation URL
+- access method and auth requirement
 - license and citation
-- retrieval date
 - source version or publication date
 - update frequency
 - geographic and temporal coverage
-- transformations applied by Deeptime
+- supported formats
+- public health or availability status
 - known limitations and appropriate-use notes
 
-The catalog is the backbone of the evidence pipeline. The UI, API, analyses, and exports should all read from it rather than duplicating source assumptions.
+Deeptime should track use-specific fields:
+
+- user and workspace provider connections
+- credentials and refresh status
+- source access attempts
+- retrieval date
+- source snapshots
+- generated layer assets
+- transformations applied by Deeptime
+- workspace-specific layer settings
+- source-use provenance records
+
+Ryu is the discovery catalog. Deeptime is the auth, access, transformation, provenance, and product system.
 
 ### 3. Provenance Model
 
 Every map, chart, summary, export, or dossier should be able to answer:
 
 - What sources were used?
+- Which Ryu source IDs did they come from?
 - When were they retrieved or uploaded?
+- Which Deeptime user or workspace credentials were used, where relevant?
 - What transformations were applied?
 - What parameters were selected?
 - What assumptions were introduced?
@@ -210,37 +263,31 @@ The intended role of AI:
 
 The model should not silently invent evidence, run hidden analysis, or produce unsupported recommendations.
 
-## Phased Plan
+## Strategic Roadmap
 
-### Phase 0: Current Foundation
+### 1. Mapping Substrate
 
-Status: partially built.
+Goal: make marine evidence visible and inspectable through a stable layer contract.
 
-Deeptime has a lightweight browser mapping foundation and a raster tile path. This is useful infrastructure, but the product should now be framed as a general marine evidence pipeline.
+Capabilities:
 
-### Phase 1: Oregon Coast Whale And Fisheries MVP
-
-Goal: prove the evidence-map pattern with a concrete, stakeholder-relevant use case.
-
-Deliverables:
-
-- PNW/Oregon coast base map
-- Oregon coastal and territorial-sea context layers
-- whale ecology layers
-- Oregon fisheries layers
-- source metadata for every layer
-- grouped layer controls
+- source-agnostic layer records
+- raster and vector delivery
+- map styles and legends
 - feature inspection
-- basic saved view
+- saved views
+- source and caveat display
 
-This phase is described in [mapping-mvp.md](mapping-mvp.md).
+### 2. Catalog-Linked Layer And Access Model
 
-### Phase 2: Provenance-First Layer Catalog
-
-Goal: make each layer scientifically and operationally legible.
+Goal: make each layer scientifically, operationally, and permission-wise legible.
 
 Deliverables:
 
+- Ryu `SourceCatalogRecord` integration
+- Deeptime provider-connection model
+- workspace source-use policy
+- source access audit records
 - layer metadata schema
 - source citation and license fields
 - retrieval or generated timestamps
@@ -249,9 +296,9 @@ Deliverables:
 - transformation metadata
 - evidence-family tags
 
-Static files are acceptable at first. The schema matters more than the storage backend.
+Static files are acceptable at first for layer records. User/provider credentials and access records should live in Deeptime-controlled auth and storage systems.
 
-### Phase 3: Deterministic Analysis And Export Jobs
+### 3. Deterministic Analysis And Export Jobs
 
 Goal: produce reproducible outputs from explicit workflows.
 
@@ -267,7 +314,7 @@ Deliverables:
 
 This is the first phase where Deeptime becomes more than a viewer.
 
-### Phase 4: Evidence Dossiers
+### 4. Evidence Dossiers
 
 Goal: package evidence into a durable research and decision-support object.
 
@@ -282,7 +329,7 @@ Deliverables:
 
 The initial dossier can be plain HTML, Markdown, or PDF. Native format is less important than reproducibility and provenance.
 
-### Phase 5: Stakeholder-Contributed Data
+### 5. Stakeholder-Contributed Data
 
 Goal: let users bring their own evidence into the same model.
 
@@ -297,7 +344,7 @@ Deliverables:
 
 This is a critical bridge from atlas to workspace.
 
-### Phase 6: AI-Assisted Planning And Review
+### 6. AI-Assisted Planning And Review
 
 Goal: make evidence workflows easier to run without weakening scientific rigor.
 
@@ -313,7 +360,7 @@ Deliverables:
 
 AI should enter as a planner and reviewer around existing workflows, not as a replacement for them.
 
-### Phase 7: Collaboration, Publication, And Sustainability
+### 7. Collaboration, Publication, And Sustainability
 
 Goal: support real external use.
 
@@ -328,38 +375,39 @@ Deliverables:
 - governance and contribution guidelines
 - hosted support model or institutional deployment path
 
-## Near-Term Development Bias
+## Development Bias
 
-Prefer work that moves Deeptime toward the evidence pipeline while keeping the first implementation small.
+Prefer work that moves Deeptime toward the evidence pipeline while keeping implementation choices reversible.
 
 Good next steps:
 
-- normalize MVP sources into one layer API
+- normalize sources into one layer API
+- keep Ryu as the public catalog and Deeptime as the auth/access executor
 - keep frontends source-agnostic
 - include source metadata and caveats from the start
 - keep saved views portable as JSON
 - keep analysis out of the UI until deterministic workflows exist
-- choose Oregon data sources that can be replaced or extended without frontend changes
+- choose source integrations that can be replaced or extended without frontend changes
 
 Avoid for now:
 
 - natural-language query UI before deterministic tools exist
 - a large database migration before the layer contract is proven
-- hard-coded assumptions that only fit one Oregon dataset
+- hard-coded assumptions that only fit one dataset, region, or provider
+- Ryu-owned user secrets or workspace-specific permissions
 - opaque AI-generated scores or recommendations
 - export and dossier workflows before layer provenance is reliable
 
 ## Success Measures
 
-Near-term success:
+Product success:
 
-- users can view whale ecology and fisheries layers together on the Oregon coast
 - layer records carry source metadata and caveats
 - users can inspect features and understand where each layer came from
 - saved views can be shared or embedded
 - the architecture can add new layer providers without frontend rewrites
 
-Medium-term success:
+Evidence success:
 
 - users can generate reproducible area summaries
 - outputs include provenance reports
@@ -367,7 +415,7 @@ Medium-term success:
 - researchers can export data in familiar formats
 - contributed data can be validated and displayed
 
-Long-term success:
+Platform success:
 
 - external stakeholders use Deeptime to assemble marine evidence packages
 - dossiers are credible enough for scientific, management, and policy review
@@ -377,9 +425,9 @@ Long-term success:
 
 ## Open Questions
 
-- Which Oregon fisheries layer should be the first canonical MVP layer?
-- Which whale ecology source should be treated as the primary public reference layer?
-- What is the minimum useful source metadata schema for MVP?
-- Should the first persistent catalog be PostGIS, static files plus generated artifacts, or a hybrid?
-- Which deterministic analysis should follow the MVP first: spatial overlap, area summary, or source comparison?
+- What is the minimum useful source metadata schema?
+- What provider-connection model does Deeptime need for multi-user source auth?
+- Which source fields belong in Ryu, and which source-use fields belong only in Deeptime?
+- What Deeptime storage boundary should hold workspace layer records, source-use records, and generated artifacts?
+- Which deterministic analysis should be implemented first: spatial overlap, area summary, or source comparison?
 - Which outputs matter first for users: interactive maps, downloadable data, narrative dossiers, or publication figures?
