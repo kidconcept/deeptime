@@ -1,27 +1,28 @@
 # deeptime
 
-Deeptime is a general-purpose evidence pipeline for marine stakeholders.
+A vibe coded tool for browsing and annotating large photomosaic datasets. 
 
-It helps teams assemble marine evidence from public, partner, and researcher-contributed sources, preserve source lineage, and turn that evidence into maps, analyses, and decision-ready outputs that can be inspected and reproduced.
+---
+
+---
 
 ## Project Overview
 
-Marine decisions often depend on scattered evidence: ecological observations, fisheries activity, vessel behavior, habitat designations, oceanographic context, management boundaries, local knowledge, and policy documents. Deeptime is intended to bring those materials into one source-linked workflow.
+Accelerating Coral Disease Tracking via AI-Assisted Photogrammetry
 
-The map is the primary entry point, but the product is broader than map visualization. Deeptime should support source intake, layer catalogs, deterministic geospatial analysis, provenance records, evidence workspaces, and exportable evidence packages.
+**Background**: Partnering with STINAPA Bonaire, we collected 3TB of high-resolution coral photogrammetry (34,057 m² across 18 sites) during the 2023 Stony Coral Tissue Loss Disease (SCTLD) outbreak and are soon to collect an additional 8 comparison sites this year. Historically, analyzing such massive datasets was hindered by rendering and transfer latency for distributed teams. Today, advances in AI-assisted coding enable us to build a scalable, cloud-native environment that translates raw data into actionable conservation metrics. At least, we'll see. Don't run this code on your own without care.
 
-## Core Ideas
+---
 
-- Evidence should remain connected to source URLs, citations, licenses, retrieval dates, transformations, and known limitations.
-- Scientific and geospatial transformations should be deterministic, inspectable, and reproducible.
-- Maps should expose uncertainty and caveats instead of hiding them behind simple scores.
-- Public datasets, partner datasets, and researcher-contributed datasets should use the same evidence model.
-- AI can help plan, retrieve, explain, and review, but source records and deterministic workflows should remain the authority.
+## Summary
 
-## Stakeholders
+### What We've Built
 
-Deeptime is designed for marine researchers, fisheries teams, coastal managers, conservation practitioners, planners, NGOs, funders, and policy teams who need to compare ecological, human-use, and governance evidence.
+- **TiTiler tile server** — Serverless tile server deployed on GCP Cloud Run, serving Cloud Optimized GeoTIFF (COG) coral imagery directly from a GCS bucket.
+- **Browse server** — A lightweight Node.js + Leaflet web app running 24/7 on a GCP e2-medium VM. Lets distributed teams pan, zoom, and explore large coral photomosaics in the browser with no data transfer overhead.
+- **COG pipeline** — Scripts to convert raw photogrammetry to COG format, upload to GCS, and register new datasets with the viewer.
+- **Deployment tooling** — Shell scripts for provisioning, deploying, starting/stopping, and SSH-ing into both the tile and browse servers via gcloud.
 
-## Documentation
+### What We're Planning to Build
 
-The long-term product direction is documented in [documentation/north-star.md](documentation/north-star.md).
+Annotation server — A single on-demand GPU server (GCE n1-standard-4 + NVIDIA T4 for dev, upgradeable to L4) that runs both the browse app and a SAM 3 inference API (Python/FastAPI). Users click coral heads in the Leaflet map, SAM 3 returns pixel-accurate segmentation masks, and an interactive refine cycle (positive/negative clicks) lets users adjust boundaries before accepting. Annotations are stored as Instance COGs — single-band uint16 rasters where each pixel value identifies an individual coral — paired with a metadata table mapping instance IDs to coral species, annotator, and other attributes. TiTiler serves the label COGs as colored overlays on the map. The server runs on-demand (~$0.18/hr spot, ~$0.54/hr on-demand) and is stopped when not in use.
